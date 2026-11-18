@@ -210,6 +210,30 @@ const auditPrerequisites = [
   { id: "builds-clean", label: "Contract builds without warnings before scanning" },
 ];
 
+// Issue #85: Prerequisites checklist for limits workflow
+const limitsPrerequisites = [
+  { id: "wasm-compiled", label: "Contract compiled to WASM and artifact exists" },
+  { id: "testkit-cli", label: "Testkit CLI installed and on your PATH" },
+  { id: "fn-exported", label: "Target function is exported in contract ABI" },
+  { id: "ramp-param", label: "Ramp parameter exists in target function signature" },
+];
+
+// Issue #83: Preflight checklist for limits workflow
+const limitsPreflight = [
+  { id: "artifact-path", label: "WASM artifact path is correct" },
+  { id: "function-valid", label: "Function name matches exported symbol" },
+  { id: "param-compatible", label: "Ramp parameter is numeric or list type" },
+  { id: "args-prepared", label: "Test arguments prepared for function invocation" },
+];
+
+// Issue #86: Advanced options for limits workflow
+export const limitsAdvancedOptions = [
+  { id: "timeout", label: "Execution timeout (ms)", type: "number", default: "5000" },
+  { id: "sample-rate", label: "Sample rate for ramp sweep", type: "number", default: "10" },
+  { id: "verbose", label: "Enable verbose output", type: "boolean", default: "false" },
+  { id: "dump-state", label: "Dump contract state after each test", type: "boolean", default: "false" },
+];
+
 function summarizeConfiguration(options: CommandOptions): SummaryRow[] {
   const rows: SummaryRow[] = [{ label: "Workflow", value: options.command }];
   if (options.path) rows.push({ label: "Path", value: options.path });
@@ -352,6 +376,17 @@ export default function App() {
   const [installFaqOpen, setInstallFaqOpen] = useState(false);
   const [auditWarningsGuideOpen, setAuditWarningsGuideOpen] = useState(false);
   const [limitsInterpretationGuideOpen, setLimitsInterpretationGuideOpen] = useState(false);
+  // Issue #85: Prerequisites checklist for limits workflow
+  const [limitsPrerequisitesOpen, setLimitsPrerequisitesOpen] = useState(false);
+  // Issue #83: Preflight checklist for limits workflow
+  const [limitsPreflightOpen, setLimitsPreflightOpen] = useState(false);
+  const [checkedLimitsPrerequisites, setCheckedLimitsPrerequisites] = useState<Record<string, boolean>>({});
+  const [checkedLimitsPreflight, setCheckedLimitsPreflight] = useState<Record<string, boolean>>({});
+  // Issue #86: Advanced options for limits workflow
+  const [limitsAdvancedOpen, setLimitsAdvancedOpen] = useState(false);
+  const [limitsAdvancedValues, setLimitsAdvancedValues] = useState<Record<string, string>>({});
+  // Issue #84: Coverage command reference
+  const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
@@ -2356,6 +2391,210 @@ soroban-testkit = "0.2.0"`}</code>
               <p className="guide-note">
                 All three workflows (coverage, audit, limits) respect Cargo workspace conventions. Point the CLI at the workspace root for aggregate analysis or at specific subdirectories for focused testing.
               </p>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #85: Prerequisites checklist for limits workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Limits workflow: Prerequisites</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={limitsPrerequisitesOpen}
+              aria-controls="limits-prerequisites-panel"
+              onClick={() => setLimitsPrerequisitesOpen((open) => !open)}
+            >
+              {limitsPrerequisitesOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {limitsPrerequisitesOpen && (
+            <div id="limits-prerequisites-panel" className="guide-panel">
+              <fieldset className="limits-prerequisites">
+                <legend>Before running the limits workflow, confirm:</legend>
+                {limitsPrerequisites.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedLimitsPrerequisites[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedLimitsPrerequisites((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Compile your Soroban contract to WebAssembly: <code>cargo build --target wasm32v1-none --release</code></li>
+                <li>Verify the WASM artifact exists at the expected path (default: <code>target/wasm32v1-none/release/contract.wasm</code>)</li>
+                <li>Ensure the target function is exported in your contract's ABI and callable from tests</li>
+                <li>Confirm the ramp parameter exists in the function signature and accepts numeric or collection types</li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #83: Preflight checklist for limits workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Limits workflow: Preflight checklist</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={limitsPreflightOpen}
+              aria-controls="limits-preflight-panel"
+              onClick={() => setLimitsPreflightOpen((open) => !open)}
+            >
+              {limitsPreflightOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {limitsPreflightOpen && (
+            <div id="limits-preflight-panel" className="guide-panel">
+              <fieldset className="limits-preflight">
+                <legend>Before hitting run, verify these:</legend>
+                {limitsPreflight.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedLimitsPreflight[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedLimitsPreflight((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Double-check the WASM artifact path matches your compiled output location</li>
+                <li>Confirm the function name exactly matches an exported contract symbol (case-sensitive)</li>
+                <li>Verify the ramp parameter is compatible with the ramping strategy (numeric types scale naturally; collections scale by count)</li>
+                <li>Test invocation arguments are prepared; the limits workflow will inject various values for the ramp parameter</li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #86: Advanced options section for limits workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Limits workflow: Advanced options</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={limitsAdvancedOpen}
+              aria-controls="limits-advanced-panel"
+              onClick={() => setLimitsAdvancedOpen((open) => !open)}
+            >
+              {limitsAdvancedOpen ? "Hide options" : "Show options"}
+            </button>
+          </div>
+          {limitsAdvancedOpen && (
+            <div id="limits-advanced-panel" className="guide-panel">
+              <p>
+                Customize limits workflow behavior with these advanced options. All are optional; defaults provide sensible baseline behavior.
+              </p>
+              <div className="advanced-options-grid">
+                {limitsAdvancedOptions.map((option) => (
+                  <div key={option.id} className="advanced-option">
+                    <label htmlFor={`advanced-${option.id}`}>
+                      {option.label}
+                    </label>
+                    {option.type === "number" ? (
+                      <input
+                        id={`advanced-${option.id}`}
+                        type="number"
+                        defaultValue={option.default}
+                        onChange={(e) =>
+                          setLimitsAdvancedValues((prev) => ({ ...prev, [option.id]: e.target.value }))
+                        }
+                        placeholder={option.default}
+                      />
+                    ) : (
+                      <input
+                        id={`advanced-${option.id}`}
+                        type="checkbox"
+                        defaultChecked={option.default === "true"}
+                        onChange={(e) =>
+                          setLimitsAdvancedValues((prev) => ({ ...prev, [option.id]: e.target.checked ? "true" : "false" }))
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <dl className="advanced-options-reference">
+                <dt><code>--timeout</code></dt>
+                <dd>Maximum milliseconds per test invocation before timing out. Default: 5000ms. Increase for slow contract initialization or complex logic.</dd>
+
+                <dt><code>--sample-rate</code></dt>
+                <dd>Number of samples to collect while ramping the parameter. Default: 10. Lower values run faster; higher values provide finer granularity in resource curves.</dd>
+
+                <dt><code>--verbose</code></dt>
+                <dd>Emit detailed logging for each ramp step, including instruction counts and memory snapshots. Useful for debugging resource scaling patterns.</dd>
+
+                <dt><code>--dump-state</code></dt>
+                <dd>Write contract state snapshots after each test invocation. Helps identify state corruption or unexpected side effects across ramp steps.</dd>
+              </dl>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #84: Command reference page for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Command reference</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coverageCommandReferenceOpen}
+              aria-controls="coverage-command-reference-panel"
+              onClick={() => setCoverageCommandReferenceOpen((open) => !open)}
+            >
+              {coverageCommandReferenceOpen ? "Hide reference" : "Show reference"}
+            </button>
+          </div>
+          {coverageCommandReferenceOpen && (
+            <div id="coverage-command-reference-panel" className="guide-panel">
+              <p>
+                The coverage workflow runs your Rust test suite through <code>cargo-llvm-cov</code> and produces machine-readable and human-friendly coverage reports.
+              </p>
+              <h4>Basic syntax</h4>
+              <pre role="region" aria-label="Coverage command syntax" tabIndex={0}>
+                <code>{`soroban-testkit coverage [OPTIONS] [PATH]\n\nOPTIONS:\n  --format <FORMAT>    Output format: html, lcov, or text [default: html]\n  --open              Automatically open HTML report in browser\n  --help              Print help information`}</code>
+              </pre>
+              <h4>Common usage patterns</h4>
+              <dl className="coverage-patterns">
+                <dt>Generate HTML report (default)</dt>
+                <dd><code>soroban-testkit coverage . --format html --open</code></dd>
+
+                <dt>Output machine-readable LCOV format</dt>
+                <dd><code>soroban-testkit coverage . --format lcov &gt; coverage.lcov</code></dd>
+
+                <dt>Terminal summary only</dt>
+                <dd><code>soroban-testkit coverage . --format text</code></dd>
+
+                <dt>Specific contract in workspace</dt>
+                <dd><code>soroban-testkit coverage ./contracts/my-contract --format html</code></dd>
+              </dl>
+              <h4>Output formats</h4>
+              <ul>
+                <li><strong>html:</strong> Interactive coverage dashboard. Click to drill down into files, functions, and coverage gaps. Best for local development.</li>
+                <li><strong>lcov:</strong> Machine-readable format compatible with CI/CD tools (GitHub Actions, GitLab CI, etc.). Use for automated gates and reporting.</li>
+                <li><strong>text:</strong> Simple summary to stdout. Fast for quick checks without file I/O.</li>
+              </ul>
+              <h4>Coverage interpretation</h4>
+              <ul>
+                <li><strong>Line coverage:</strong> Percentage of executable lines executed during the test run. Gaps often indicate error handling paths or edge cases.</li>
+                <li><strong>Branch coverage:</strong> Tracks both sides of conditional logic. High branch coverage means error paths and alternate flows are tested.</li>
+                <li><strong>Function coverage:</strong> Shows whether each function was invoked. Useful for identifying dead code and untested entry points.</li>
+              </ul>
             </div>
           )}
         </article>
