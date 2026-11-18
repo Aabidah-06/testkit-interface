@@ -1498,3 +1498,197 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
   margin-top: var(--space-md);
   align-self: flex-start;
 }
+
+/* Issue #83, #85, #86: Limits and coverage guide panels */
+.guide-panel {
+  background: var(--color-surface-card);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-3xl);
+  margin-top: var(--space-lg);
+}
+
+.guide-panel ol, .guide-panel ul {
+  margin: var(--space-lg) 0;
+  padding-left: 1.5rem;
+  color: var(--color-text-body);
+  line-height: 1.65;
+}
+
+.guide-panel li {
+  margin-bottom: var(--space-md);
+}
+
+.guide-panel code {
+  background: var(--color-surface-output);
+  padding: 2px var(--space-xs);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-accent);
+}
+
+.guide-panel h4 {
+  margin: var(--space-3xl) 0 var(--space-md);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.guide-panel h4:first-child {
+  margin-top: 0;
+}
+
+.guide-panel .guide-definitions {
+  margin: var(--space-lg) 0;
+}
+
+.guide-panel .guide-definitions dt {
+  margin-top: var(--space-md);
+  font-weight: 600;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+}
+
+.guide-panel .guide-definitions dt:first-child {
+  margin-top: 0;
+}
+
+.guide-panel .guide-definitions dd {
+  margin: var(--space-xs) 0 0 0;
+  color: var(--color-text-body);
+  line-height: 1.6;
+}
+
+.guide-panel .guide-note {
+  margin-top: var(--space-xl);
+  padding: var(--space-lg);
+  background: var(--color-accent-subtle);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Issue #85 & #83: Checklist styling for limits prerequisites and preflight */
+.limits-prerequisites,
+.limits-preflight,
+.audit-prerequisites {
+  border: none;
+  margin: 0 0 var(--space-xl) 0;
+  padding: 0;
+}
+
+.limits-prerequisites legend,
+.limits-preflight legend,
+.audit-prerequisites legend {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-lg);
+  display: block;
+}
+
+/* Issue #86: Advanced options styling */
+.advanced-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-3xl);
+  margin: var(--space-xl) 0;
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.advanced-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.advanced-option label {
+  font-weight: 500;
+  color: var(--color-text-label);
+  font-size: 0.95rem;
+}
+
+.advanced-option input[type="number"],
+.advanced-option input[type="text"] {
+  background: var(--color-surface-output);
+  border: 1px solid var(--color-border-input);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.advanced-option input[type="number"]:focus,
+.advanced-option input[type="text"]:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-color: var(--color-accent);
+}
+
+.advanced-option input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.advanced-options-reference {
+  margin: var(--space-xl) 0 0 0;
+  padding: 0;
+}
+
+.advanced-options-reference dt {
+  margin-top: var(--space-md);
+  font-weight: 600;
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+}
+
+.advanced-options-reference dt:first-child {
+  margin-top: 0;
+}
+
+.advanced-options-reference dd {
+  margin: var(--space-xs) 0 0 0;
+  color: var(--color-text-body);
+  line-height: 1.6;
+}
+
+/* Issue #84: Coverage command reference styling */
+.coverage-patterns {
+  margin: var(--space-lg) 0;
+  padding: 0;
+}
+
+.coverage-patterns dt {
+  margin-top: var(--space-md);
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.coverage-patterns dt:first-child {
+  margin-top: 0;
+}
+
+.coverage-patterns dd {
+  margin: var(--space-xs) 0 0 0;
+  color: var(--color-text-body);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+  .advanced-options-grid {
+    grid-template-columns: 1fr;
+  }
+}
+}
