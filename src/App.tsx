@@ -234,6 +234,46 @@ export const limitsAdvancedOptions = [
   { id: "dump-state", label: "Dump contract state after each test", type: "boolean", default: "false" },
 ];
 
+// Issue #81: Prerequisites checklist for coverage workflow
+const coveragePrerequisites = [
+  { id: "rust", label: "Rust toolchain installed via rustup" },
+  { id: "llvm-cov", label: "cargo-llvm-cov installed and available" },
+  { id: "testkit-cli", label: "Testkit CLI installed and on your PATH" },
+  { id: "tests-pass", label: "Local test suite runs successfully" },
+];
+
+// Issue #79: Advanced options for coverage workflow
+export const coverageAdvancedOptions = [
+  { id: "threads", label: "Number of parallel test threads", type: "number", default: "4" },
+  { id: "timeout", label: "Per-test timeout (seconds)", type: "number", default: "300" },
+  { id: "fail-fast", label: "Stop on first test failure", type: "boolean", default: "false" },
+  { id: "exact", label: "Run only exact test matches", type: "boolean", default: "false" },
+];
+
+// Issue #80: Ready-to-run examples for coverage workflow
+const coverageExamples = [
+  {
+    title: "Single contract in root",
+    description: "Run coverage for a contract in the repository root",
+    command: "soroban-testkit coverage . --format html --open",
+  },
+  {
+    title: "Monorepo structure",
+    description: "Run coverage for a specific contract in a /contracts subdirectory",
+    command: "soroban-testkit coverage ./contracts/my-contract --format html --open",
+  },
+  {
+    title: "Machine-readable output",
+    description: "Generate LCOV format for CI/CD integration",
+    command: "soroban-testkit coverage . --format lcov --open",
+  },
+  {
+    title: "Terminal summary only",
+    description: "Quick coverage check without opening a report",
+    command: "soroban-testkit coverage . --format text",
+  },
+];
+
 function summarizeConfiguration(options: CommandOptions): SummaryRow[] {
   const rows: SummaryRow[] = [{ label: "Workflow", value: options.command }];
   if (options.path) rows.push({ label: "Path", value: options.path });
@@ -385,6 +425,14 @@ export default function App() {
   // Issue #86: Advanced options for limits workflow
   const [limitsAdvancedOpen, setLimitsAdvancedOpen] = useState(false);
   const [limitsAdvancedValues, setLimitsAdvancedValues] = useState<Record<string, string>>({});
+  // Issue #81: Prerequisites checklist for coverage workflow
+  const [coveragePrerequisitesOpen, setCoveragePrerequisitesOpen] = useState(false);
+  const [checkedCoveragePrerequisites, setCheckedCoveragePrerequisites] = useState<Record<string, boolean>>({});
+  // Issue #79: Advanced options for coverage workflow
+  const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
+  const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
+  // Issue #80: Ready-to-run examples for coverage workflow
+  const [coverageExamplesOpen, setCoverageExamplesOpen] = useState(false);
   // Issue #84: Coverage command reference
   const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
@@ -906,6 +954,32 @@ export default function App() {
             <p className="eyebrow">{selectedModuleData.category}</p>
             <h2 id="modules-heading">{selectedModuleData.name}</h2>
             <p>{selectedModuleData.description}</p>
+            {/* Issue #82: Version and compatibility notes for the ttl module */}
+            {selectedModuleData.name === "ttl" && (
+              <div className="module-version-info">
+                <h3>Version and compatibility</h3>
+                <dl className="version-details">
+                  <dt>Current version</dt>
+                  <dd>Soroban SDK 27.0.x and later</dd>
+
+                  <dt>Minimum Rust version</dt>
+                  <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                  <dt>Stellar network support</dt>
+                  <dd>Compatible with Testnet and Mainnet. TTL values are determined by the Soroban ledger context.</dd>
+
+                  <dt>Ledger compatibility</dt>
+                  <dd>Requires Soroban ledger functionality enabled. Use <code>env.ledger()</code> to access current ledger sequence and TTL calculations.</dd>
+                </dl>
+                <h3>Known considerations</h3>
+                <ul>
+                  <li><strong>Ledger sequence requirements:</strong> Ensure your test environment has a properly initialized ledger state. TTL calculations depend on accurate sequence numbers.</li>
+                  <li><strong>Storage extension cost:</strong> Calling <code>env.storage().instance().extend_ttl()</code> consumes ledger resources. Plan for this in resource-sensitive contracts.</li>
+                  <li><strong>Deterministic testing:</strong> TTL values in tests are deterministic. Use <code>env.ledger().sequence()</code> to control ledger time explicitly.</li>
+                  <li><strong>Persistent vs. temporary:</strong> Different storage types (persistent vs. temporary) have different TTL semantics. Test both using the testkit module.</li>
+                </ul>
+              </div>
+            )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
               Back to all modules
             </button>
@@ -1179,6 +1253,19 @@ export default function App() {
                     cargo llvm-cov --workspace --lcov --output-path lcov.info
                   </code>
                 </pre>
+                {/* Issue #80 — Ready-to-run examples for coverage workflow */}
+                <div className="coverage-examples" aria-labelledby="coverage-examples-heading">
+                  <h4 id="coverage-examples-heading">Ready-to-run examples</h4>
+                  <div className="example-grid">
+                    {coverageExamples.map((example, index) => (
+                      <div key={index} className="example-card">
+                        <h5>{example.title}</h5>
+                        <p>{example.description}</p>
+                        <pre><code>{example.command}</code></pre>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
             {tab.id === "workspace" && (
@@ -2391,6 +2478,161 @@ soroban-testkit = "0.2.0"`}</code>
               <p className="guide-note">
                 All three workflows (coverage, audit, limits) respect Cargo workspace conventions. Point the CLI at the workspace root for aggregate analysis or at specific subdirectories for focused testing.
               </p>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #81: Prerequisites checklist for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Prerequisites</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coveragePrerequisitesOpen}
+              aria-controls="coverage-prerequisites-panel"
+              onClick={() => setCoveragePrerequisitesOpen((open) => !open)}
+            >
+              {coveragePrerequisitesOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {coveragePrerequisitesOpen && (
+            <div id="coverage-prerequisites-panel" className="guide-panel">
+              <fieldset className="coverage-prerequisites">
+                <legend>Before running the coverage workflow, confirm:</legend>
+                {coveragePrerequisites.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedCoveragePrerequisites[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedCoveragePrerequisites((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Ensure Rust is installed via rustup with the wasm32v1-none target available</li>
+                <li>Install cargo-llvm-cov for coverage report generation: <code>cargo install cargo-llvm-cov</code></li>
+                <li>Verify testkit-cli is installed and accessible: <code>soroban-testkit --version</code></li>
+                <li>Run your test suite locally to confirm all tests pass: <code>cargo test</code></li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #80: Ready-to-run examples for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Ready-to-run examples</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coverageExamplesOpen}
+              aria-controls="coverage-examples-guide-panel"
+              onClick={() => setCoverageExamplesOpen((open) => !open)}
+            >
+              {coverageExamplesOpen ? "Hide examples" : "Show examples"}
+            </button>
+          </div>
+          {coverageExamplesOpen && (
+            <div id="coverage-examples-guide-panel" className="guide-panel">
+              <p>
+                Quick reference for common coverage workflow patterns. Copy any command and adjust the path for your project.
+              </p>
+              <div className="coverage-command-examples">
+                {coverageExamples.map((example, index) => (
+                  <div key={index} className="command-example">
+                    <h5>{example.title}</h5>
+                    <p>{example.description}</p>
+                    <pre role="region" aria-label={example.title} tabIndex={0}>
+                      <code>{example.command}</code>
+                    </pre>
+                  </div>
+                ))}
+              </div>
+              <dl className="coverage-examples-reference">
+                <dt><code>--format html</code></dt>
+                <dd>Interactive coverage dashboard. Best for local development and reviewing coverage gaps by file and function.</dd>
+
+                <dt><code>--format lcov</code></dt>
+                <dd>Machine-readable LCOV format for CI/CD integration with GitHub Actions, GitLab CI, Codecov, or Coveralls.</dd>
+
+                <dt><code>--format text</code></dt>
+                <dd>Simple summary output to the terminal. Fast for quick checks without generating report files.</dd>
+
+                <dt><code>--open</code></dt>
+                <dd>Automatically open the HTML report in your default browser after generation (HTML format only).</dd>
+              </dl>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #79: Advanced options for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Advanced options</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coverageAdvancedOpen}
+              aria-controls="coverage-advanced-panel"
+              onClick={() => setCoverageAdvancedOpen((open) => !open)}
+            >
+              {coverageAdvancedOpen ? "Hide options" : "Show options"}
+            </button>
+          </div>
+          {coverageAdvancedOpen && (
+            <div id="coverage-advanced-panel" className="guide-panel">
+              <p>
+                Customize coverage workflow behavior with these advanced options. All are optional; defaults provide sensible baseline behavior for most projects.
+              </p>
+              <div className="advanced-options-grid">
+                {coverageAdvancedOptions.map((option) => (
+                  <div key={option.id} className="advanced-option">
+                    <label htmlFor={`coverage-advanced-${option.id}`}>
+                      {option.label}
+                    </label>
+                    {option.type === "number" ? (
+                      <input
+                        id={`coverage-advanced-${option.id}`}
+                        type="number"
+                        defaultValue={option.default}
+                        onChange={(e) =>
+                          setCoverageAdvancedValues((prev) => ({ ...prev, [option.id]: e.target.value }))
+                        }
+                        placeholder={option.default}
+                      />
+                    ) : (
+                      <input
+                        id={`coverage-advanced-${option.id}`}
+                        type="checkbox"
+                        defaultChecked={option.default === "true"}
+                        onChange={(e) =>
+                          setCoverageAdvancedValues((prev) => ({ ...prev, [option.id]: e.target.checked ? "true" : "false" }))
+                        }
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <dl className="advanced-options-reference">
+                <dt><code>--threads</code></dt>
+                <dd>Number of parallel test threads. Default: 4. Increase on powerful machines for faster test execution; decrease on resource-constrained environments.</dd>
+
+                <dt><code>--timeout</code></dt>
+                <dd>Per-test timeout in seconds. Default: 300s. Increase for slow tests or complex contract initialization logic.</dd>
+
+                <dt><code>--fail-fast</code></dt>
+                <dd>Stop test execution on the first failure. Useful for rapid iteration; disable for complete coverage reporting.</dd>
+
+                <dt><code>--exact</code></dt>
+                <dd>Run only exact test name matches. Useful for targeting specific test functions without wildcards or substring matching.</dd>
+              </dl>
             </div>
           )}
         </article>
