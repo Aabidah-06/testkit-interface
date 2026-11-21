@@ -1654,3 +1654,21 @@ describe("Tokens module runnable Rust example (#60)", () => {
     expect(liveRegion?.textContent).toMatch(/tokens rust example copied/i);
   });
 });
+
+describe("Events module troubleshooting FAQ (#62)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ toggle in the events module view", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    const toggle = screen.getByRole("button", { name: /show faq/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "events-faq-panel");
+    expect(document.getElementById("events-faq-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /hide faq/i })).toBeInTheDocument();
+    expect(document.getElementById("events-faq-panel")).toBeInTheDocument();
+    expect(screen.getByText(/No events captured after calling a contract method/i)).toBeInTheDocument();
+  });
+});

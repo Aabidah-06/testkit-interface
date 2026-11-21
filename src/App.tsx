@@ -460,6 +460,8 @@ export default function App() {
   const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
   // Issue #60: Runnable Rust example for the tokens module
   const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
+  // Issue #62: Troubleshooting FAQ for the events module
+  const [eventsFaqOpen, setEventsFaqOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -1002,6 +1004,60 @@ export default function App() {
                   <li><strong>Deterministic testing:</strong> TTL values in tests are deterministic. Use <code>env.ledger().sequence()</code> to control ledger time explicitly.</li>
                   <li><strong>Persistent vs. temporary:</strong> Different storage types (persistent vs. temporary) have different TTL semantics. Test both using the testkit module.</li>
                 </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "events" && (
+              <div className="module-events-sections">
+                {/* Issue #62: Troubleshooting FAQ for the events module */}
+                <article className="guide-card">
+                  <div className="guide-header">
+                    <h3>Troubleshooting FAQ</h3>
+                    <button
+                      type="button"
+                      className="guide-toggle"
+                      aria-expanded={eventsFaqOpen}
+                      aria-controls="events-faq-panel"
+                      onClick={() => setEventsFaqOpen((open) => !open)}
+                    >
+                      {eventsFaqOpen ? "Hide FAQ" : "Show FAQ"}
+                    </button>
+                  </div>
+                  {eventsFaqOpen && (
+                    <div id="events-faq-panel" className="guide-panel">
+                      <h4>No events captured after calling a contract method</h4>
+                      <p>
+                        <strong>Cause:</strong> Events were inspected before the contract invocation ran, or the test environment reset between calls.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Capture events immediately inside or right after the contract call using <code>EventLog::capture(&amp;env, || &#123; ... &#125;)</code> or <code>env.events().all()</code>.
+                      </p>
+
+                      <h4>Topic assertion fails due to Symbol vs String mismatch</h4>
+                      <p>
+                        <strong>Cause:</strong> Soroban contract events distinguish between <code>Symbol</code> (such as <code>symbol_short!("transfer")</code>) and <code>String</code> values in topic tuples.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Match the exact topic types published by <code>env.events().publish(...)</code> when building your expected topic matcher.
+                      </p>
+
+                      <h4>Contract filter misses events emitted by a sub-contract</h4>
+                      <p>
+                        <strong>Cause:</strong> Filtering by the outer contract address excludes events emitted by downstream token or helper contracts.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Pass the emitting contract's <code>Address</code> to <code>for_contract(&amp;contract_id)</code>, or inspect the full captured log when asserting cross-contract flows.
+                      </p>
+
+                      <h4>Event payload decoding fails with a type mismatch</h4>
+                      <p>
+                        <strong>Cause:</strong> The Rust type requested in the assertion does not match the tuple or <code>#[contracttype]</code> struct serialized by the contract.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Verify the exact field order and integer width (for example <code>i128</code> vs <code>u64</code>) in the contract's <code>publish</code> call.
+                      </p>
+                    </div>
+                  )}
+                </article>
               </div>
             )}
             {selectedModuleData.name === "tokens" && (
