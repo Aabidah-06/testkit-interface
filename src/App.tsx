@@ -208,6 +208,46 @@ const authApiOverview = [
   },
 ] as const;
 
+const authQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and test identities",
+    detail: "Call TestEnv::new() and env.address() to generate owner and unprivileged caller addresses.",
+  },
+  {
+    title: "Register entry points in AuthMatrix",
+    detail: "Pass each entry point name, its allowed caller slice, and a closure returning Result to .entry_point(...).",
+  },
+  {
+    title: "Run cross-checks with assert_enforced",
+    detail: "Call .assert_enforced() to verify allowed callers succeed and all other known callers are rejected.",
+  },
+] as const;
+
+const authExampleCode = `use soroban_testkit::auth::AuthMatrix;
+use soroban_testkit::core::TestEnv;
+
+#[test]
+fn only_owner_can_withdraw() {
+    let env = TestEnv::new();
+    let owner = env.address();
+    let other = env.address();
+
+    AuthMatrix::new(&env)
+        .entry_point("deposit", &[owner.clone(), other.clone()], |_caller| Ok(()))
+        .entry_point("withdraw", &[owner.clone()], |caller| {
+            if *caller == owner {
+                Ok(())
+            } else {
+                Err(soroban_sdk::Error::from_contract_error(1))
+            }
+        })
+        .assert_enforced();
+}`;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -1281,6 +1321,17 @@ export default function App() {
                       </Fragment>
                     ))}
                   </dl>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {authQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("auth", "tests/auth.rs", authExampleCode)}
                 </div>
                 {/* Issue #68: Version and compatibility notes for the auth module */}
                 <div className="module-version-info">

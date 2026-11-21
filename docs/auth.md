@@ -9,6 +9,13 @@
 - `.assert_enforced()` — runs every registered entry point against both its allowed callers and all other known addresses, panicking with the full matrix on any mismatch.
 - `env.assert_requires_auth(|| { ... })` — asserts that a single contract call fails when invoked without authorization.
 
+## Quick start
+
+1. Add the crate: `cargo add --dev soroban-testkit`.
+2. Create a `TestEnv` and generate test identities with `env.address()`.
+3. Register each entry point with `AuthMatrix::new(&env).entry_point(name, allowed, invoke)`.
+4. Call `.assert_enforced()` to verify that allowed callers succeed and every other known caller is rejected.
+
 ## Runnable example
 
 Put this in a test file of your contract crate (for example `tests/auth.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:

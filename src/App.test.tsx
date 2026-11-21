@@ -1860,3 +1860,49 @@ describe("Tokens module common failure modes (#67)", () => {
     expect(screen.getByText(/authorization error on transfer/i)).toBeInTheDocument();
   });
 });
+
+// Issue #70 — quick-start walkthrough for the auth module
+describe("Auth module quick-start walkthrough (#70)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv and test identities/i)).toBeInTheDocument();
+    expect(screen.getByText(/Register entry points in AuthMatrix/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/auth module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("fn only_owner_can_withdraw");
+  });
+
+  it("copies the auth quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy auth module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("AuthMatrix::new(&env)"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/auth module rust example copied/i);
+  });
+});
