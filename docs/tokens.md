@@ -1,43 +1,43 @@
 # tokens module
 
-`soroban_testkit::tokens` provides Stellar Asset Contract (SAC) test doubles, minting helpers, and balance conservation checks for contract tests.
+`soroban_testkit::tokens` provides Stellar Asset Contract (SAC) test doubles for deterministic minting, transfers, allowances, and balance assertions in contract tests.
 
-## Runnable example
+## Quick start
 
-Put this in a test file of your contract crate (for example `tests/tokens.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:
+1. Add the crate: `cargo add --dev soroban-testkit`.
+2. Create a deterministic `TestEnv` and deploy a Stellar Asset Contract test double:
 
-```rust
-use soroban_testkit::core::TestEnv;
-use soroban_testkit::tokens::MockToken;
+   ```rust
+   use soroban_testkit::core::TestEnv;
 
-#[test]
-fn transfer_updates_balances() {
-    let env = TestEnv::new();
-    env.env().mock_all_auths();
+   let env = TestEnv::new();
+   let token = env.token();
+   let alice = env.address();
+   let bob = env.address();
+   ```
 
-    let admin = env.address();
-    let alice = env.address();
-    let bob = env.address();
+3. Mint an initial balance to an account:
 
-    let token = MockToken::deploy(&env, &admin);
-    token.mint(&alice, &10_000_000);
-    token.transfer(&alice, &bob, &2_500_000);
+   ```rust
+   token.mint(&alice, 1_000);
+   assert_eq!(token.balance(&alice), 1_000);
+   ```
 
-    assert_eq!(token.balance(&alice), 7_500_000);
-    assert_eq!(token.balance(&bob), 2_500_000);
-}
-```
+4. Transfer tokens or pass `token.address()` into your contract under test, then assert the resulting balances:
 
-## Troubleshooting FAQ
+   ```rust
+   token.transfer(&alice, &bob, 350);
+   assert_eq!(token.balance(&alice), 650);
+   assert_eq!(token.balance(&bob), 350);
+   ```
 
-**Transfer or deposit panics with insufficient balance.**
-The sender address has not been minted enough test tokens, or the amount did not account for Stellar Asset Contract 7-decimal precision. Call `token.mint(&sender, &amount)` before invoking the contract under test, and express whole units in stroops (for example, `10_000_000` for 1.0 token).
+## Version and compatibility
 
-**`HostError: Error(Auth, InvalidAction)` on `transfer` or `approve`.**
-Stellar Asset Contract calls require authorization from the `from` or `owner` address. Enable `env.mock_all_auths()` for happy-path balance tests, or configure explicit `mock_auths` entries when verifying authorization boundaries.
-
-**`transfer_from` fails even after `approve`.**
-The allowance expired before the call, or the spender passed to `transfer_from` does not match the approved address. Pass an `expiration_ledger` greater than or equal to `env.ledger().sequence()` when calling `approve`, and verify the spender address matches.
-
-**Balance conservation assertion fails after fee-splitting calls.**
-A conservation check only summed sender and recipient balances without accounting for protocol fee or treasury addresses. Include every participating account (including fee sinks and contract escrow addresses) when asserting total balance deltas across an invocation.
+- **Current version**: Soroban SDK 27.0.x and later.
+- **Minimum Rust version**: Rust 1.84 or later with the `wasm32v1-none` target.
+- **Token standard support**: Implements the Stellar Asset Contract (SEP-41) token interface (`transfer`, `transfer_from`, `approve`, `balance`, `allowance`).
+- **Stellar network support**: Compatible with Testnet and Mainnet SAC behavior, using `i128` signed amounts.
+- **Known considerations**:
+  - **Signed `i128` amounts**: All token amounts and balances use `i128`; negative values or overflows panic as in the Soroban SAC.
+  - **Auth requirements on transfers**: `token.mint` uses test admin privileges, whereas `token.transfer` and `token.transfer_from` follow standard SAC authorization rules.
+  - **Isolated per `TestEnv`**: Each `env.token()` instance is scoped to its `TestEnv` and does not share state across tests.

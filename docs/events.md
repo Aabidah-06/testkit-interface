@@ -1,44 +1,47 @@
 # events module
 
-`soroban_testkit::events` captures contract-emitted events and provides typed topic and payload assertions for deterministic tests.
+`soroban_testkit::events` captures contract-emitted events during a test invocation and provides typed assertions so state-change notifications are verified alongside return values.
 
-## Quick start
+## API overview
 
-1. Add the crate: `cargo add --dev soroban-testkit`.
-2. Initialize `TestEnv::new()` and register your contract.
-3. Capture events during a contract invocation with `EventLog::capture`:
+- `EventLog::capture(&env, || { ... })` — runs a closure against `TestEnv` and records all contract events emitted during that call.
+- `log.assert_count(n)` — fails with a summary of captured events if the total count does not equal `n`.
+- `log.assert_topic(&contract_id, topics)` — verifies that a captured event from `contract_id` matches the expected Soroban topic tuple.
+- `log.assert_data::<T>(&contract_id, expected)` — decodes the event payload as `T` and asserts equality against `expected`.
+- `log.for_contract(&contract_id)` — returns only the events emitted by a specific contract address, isolating cross-contract calls.
+- `log.len()` / `log.is_empty()` — inspects the number of captured events without panicking.
 
-   ```rust
-   use soroban_sdk::symbol_short;
-   use soroban_testkit::core::TestEnv;
-   use soroban_testkit::events::EventLog;
+## Runnable example
 
-   let env = TestEnv::new();
-   let id = env.env().register(Vault, ());
-   let client = VaultClient::new(env.env(), &id);
+Put this in a test file of your contract crate (for example `tests/events.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:
 
-   let log = EventLog::capture(&env, || {
-       client.deposit(&env.address(), &500);
-   });
-   ```
+```rust
+use soroban_sdk::{symbol_short, Address};
+use soroban_testkit::core::TestEnv;
+use soroban_testkit::events::EventLog;
 
-4. Filter by contract and assert the expected topic and payload:
+#[test]
+fn deposit_emits_typed_transfer_event() {
+    let env = TestEnv::new();
+    let contract_id = env.env().register(Vault, ());
+    let client = VaultClient::new(env.env(), &contract_id);
+    let sender: Address = env.address();
 
-   ```rust
-   log.for_contract(&id)
-       .assert_emitted::<i128>((symbol_short!("deposit"),), &500);
-   ```
+    let log = EventLog::capture(&env, || {
+        client.deposit(&sender, &250);
+    });
 
-## Troubleshooting FAQ
+    log.assert_count(1);
+    log.assert_topic(&contract_id, (symbol_short!("deposit"), sender.clone()));
+    log.assert_data::<i128>(&contract_id, 250);
+}
+```
 
-**No events captured after calling a contract method.**
-Events were inspected before the contract invocation ran, or the test environment reset between calls. Capture events immediately inside or right after the contract call using `EventLog::capture(&env, || { ... })` or `env.events().all()`.
+In a real contract test, wrap the single contract call you want to inspect inside `EventLog::capture` so unrelated setup calls do not pollute the captured event list.
 
-**Topic assertion fails due to `Symbol` vs `String` mismatch.**
-Soroban contract events distinguish between `Symbol` (such as `symbol_short!("transfer")`) and `String` values in topic tuples. Match the exact topic types published by `env.events().publish(...)` when building your expected topic matcher.
+## Common failure modes
 
-**Contract filter misses events emitted by a sub-contract.**
-Filtering by the outer contract address excludes events emitted by downstream token or helper contracts. Pass the emitting contract's `Address` to `for_contract(&contract_id)`, or inspect the full captured log when asserting cross-contract flows.
-
-**Event payload decoding fails with a type mismatch.**
-The Rust type requested in the assertion does not match the tuple or `#[contracttype]` struct serialized by the contract. Verify the exact field order and integer width (for example `i128` vs `u64`) in the contract's `publish` call.
+- **`expected N events, found M`**: setup calls (such as `token.mint` or initialization) ran inside `EventLog::capture`, or a cross-contract call emitted an extra event. Move setup before `EventLog::capture`, or filter by `contract_id`.
+- **`topic mismatch at index ...`**: Soroban encodes `Symbol` topics differently from `String` values. Use `symbol_short!` (or `Symbol::new`) to match the exact topic type emitted by the contract.
+- **`failed to decode event data as T`**: the Rust type passed to `assert_data::<T>` does not match the XDR type emitted by `env.events().publish(...)` (for example `u128` vs `i128`, or a tuple vs a struct).
+- **`no events captured for contract`**: the contract invocation panicked before publishing, or `EventLog::capture` was called on a different `TestEnv` instance than the contract client.
