@@ -1607,3 +1607,21 @@ describe("Copied status persistence for assistive technology (#103)", () => {
     expect(liveRegion?.textContent).toMatch(/copied/i);
   });
 });
+
+describe("Tokens module troubleshooting FAQ (#63)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ toggle in the tokens module view", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    const toggle = screen.getByRole("button", { name: /show faq/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "tokens-faq-panel");
+    expect(document.getElementById("tokens-faq-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /hide faq/i })).toBeInTheDocument();
+    expect(document.getElementById("tokens-faq-panel")).toBeInTheDocument();
+    expect(screen.getByText(/Transfer or deposit panics with insufficient balance/i)).toBeInTheDocument();
+  });
+});

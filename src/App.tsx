@@ -436,6 +436,8 @@ export default function App() {
   // Issue #84: Coverage command reference
   const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
+  // Issue #63: Troubleshooting FAQ for the tokens module
+  const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -978,6 +980,60 @@ export default function App() {
                   <li><strong>Deterministic testing:</strong> TTL values in tests are deterministic. Use <code>env.ledger().sequence()</code> to control ledger time explicitly.</li>
                   <li><strong>Persistent vs. temporary:</strong> Different storage types (persistent vs. temporary) have different TTL semantics. Test both using the testkit module.</li>
                 </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "tokens" && (
+              <div className="module-tokens-sections">
+                {/* Issue #63: Troubleshooting FAQ for the tokens module */}
+                <article className="guide-card">
+                  <div className="guide-header">
+                    <h3>Troubleshooting FAQ</h3>
+                    <button
+                      type="button"
+                      className="guide-toggle"
+                      aria-expanded={tokensFaqOpen}
+                      aria-controls="tokens-faq-panel"
+                      onClick={() => setTokensFaqOpen((open) => !open)}
+                    >
+                      {tokensFaqOpen ? "Hide FAQ" : "Show FAQ"}
+                    </button>
+                  </div>
+                  {tokensFaqOpen && (
+                    <div id="tokens-faq-panel" className="guide-panel">
+                      <h4>Transfer or deposit panics with insufficient balance</h4>
+                      <p>
+                        <strong>Cause:</strong> The sender address has not been minted enough test tokens, or the amount did not account for Stellar Asset Contract 7-decimal precision.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Call <code>token.mint(&amp;sender, &amp;amount)</code> before invoking the contract under test, and express whole units in stroops (for example, <code>10_000_000</code> for 1.0 token).
+                      </p>
+
+                      <h4>HostError: Error(Auth, InvalidAction) on transfer or approve</h4>
+                      <p>
+                        <strong>Cause:</strong> Stellar Asset Contract calls require authorization from the <code>from</code> or <code>owner</code> address, which is missing in the test environment.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Enable <code>env.mock_all_auths()</code> for happy-path balance tests, or configure explicit <code>mock_auths</code> entries for the expected signer when verifying authorization boundaries.
+                      </p>
+
+                      <h4>transfer_from fails even after approve</h4>
+                      <p>
+                        <strong>Cause:</strong> The allowance expired before the call, or the spender passed to <code>transfer_from</code> does not match the approved address.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Pass an <code>expiration_ledger</code> greater than or equal to <code>env.ledger().sequence()</code> when calling <code>approve</code>, and verify the spender address matches.
+                      </p>
+
+                      <h4>Balance conservation assertion fails after fee-splitting calls</h4>
+                      <p>
+                        <strong>Cause:</strong> A conservation check only summed sender and recipient balances without accounting for protocol fee or treasury addresses.
+                      </p>
+                      <p>
+                        <strong>Solution:</strong> Include every participating account (including fee sinks and contract escrow addresses) when asserting total balance deltas across an invocation.
+                      </p>
+                    </div>
+                  )}
+                </article>
               </div>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
