@@ -1726,3 +1726,17 @@ describe("Money module runnable Rust example (#52)", () => {
     expect(liveRegion?.textContent).toMatch(/money module rust example copied/i);
   });
 });
+
+// Issue #65 — concise API overview for the auth module
+describe("Auth module API overview (#65)", () => {
+  it("renders a concise API overview when viewing the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("AuthMatrix::new(&env)")).toBeInTheDocument();
+    expect(screen.getByText(".entry_point(name, allowed, invoke)")).toBeInTheDocument();
+    expect(screen.getByText(".assert_enforced()")).toBeInTheDocument();
+    expect(screen.getByText("env.assert_requires_auth(|| { ... })")).toBeInTheDocument();
+  });
+});

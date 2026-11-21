@@ -189,6 +189,25 @@ const eventsApiOverview = [
   },
 ] as const;
 
+const authApiOverview = [
+  {
+    symbol: "AuthMatrix::new(&env)",
+    summary: "Creates a privilege matrix bound to TestEnv to verify allowed and disallowed callers across entry points.",
+  },
+  {
+    symbol: ".entry_point(name, allowed, invoke)",
+    summary: "Registers an entry point with its authorized caller slice and invocation closure returning Result.",
+  },
+  {
+    symbol: ".assert_enforced()",
+    summary: "Cross-checks every entry point against allowed callers and all other known addresses, failing with a matrix diff on mismatch.",
+  },
+  {
+    symbol: "env.assert_requires_auth(|| { ... })",
+    summary: "Asserts that a single contract invocation fails when called without authorization.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -1131,6 +1150,21 @@ export default function App() {
             {selectedModuleData.name === "money" && (
               <div className="module-doc-section">
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
+              </div>
+            )}
+            {selectedModuleData.name === "auth" && (
+              <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {authApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
               </div>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
