@@ -189,6 +189,25 @@ const eventsApiOverview = [
   },
 ] as const;
 
+const authApiOverview = [
+  {
+    symbol: "AuthMatrix::new(&env)",
+    summary: "Creates a privilege matrix bound to TestEnv to verify allowed and disallowed callers across entry points.",
+  },
+  {
+    symbol: ".entry_point(name, allowed, invoke)",
+    summary: "Registers an entry point with its authorized caller slice and invocation closure returning Result.",
+  },
+  {
+    symbol: ".assert_enforced()",
+    summary: "Cross-checks every entry point against allowed callers and all other known addresses, failing with a matrix diff on mismatch.",
+  },
+  {
+    symbol: "env.assert_requires_auth(|| { ... })",
+    summary: "Asserts that a single contract invocation fails when called without authorization.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -208,6 +227,41 @@ fn escrow_release_conserves_total_supply() {
 
     let after_total = token.balance(&buyer) + token.balance(&seller) + token.balance(&escrow);
     Conservation::new(initial_total, after_total).assert_holds();
+}`;
+
+const tokensQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and SAC test double",
+    detail: "Call TestEnv::new() and env.token() to spin up an isolated Stellar Asset Contract test double.",
+  },
+  {
+    title: "Mint initial test balances",
+    detail: "Generate test addresses with env.address() and fund them using token.mint(&account, amount).",
+  },
+  {
+    title: "Invoke transfers and assert balances",
+    detail: "Call token.transfer(...) or pass the token address to your contract, then verify balances with token.balance(&account).",
+  },
+] as const;
+
+const tokensExampleCode = `use soroban_testkit::core::TestEnv;
+
+#[test]
+fn token_transfer_updates_balances() {
+    let env = TestEnv::new();
+    let token = env.token();
+    let alice = env.address();
+    let bob = env.address();
+
+    token.mint(&alice, 1_000);
+    token.transfer(&alice, &bob, 350);
+
+    assert_eq!(token.balance(&alice), 650);
+    assert_eq!(token.balance(&bob), 350);
 }`;
 
 const optionalArgumentRows = [
@@ -1132,6 +1186,84 @@ export default function App() {
               <div className="module-doc-section">
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
               </div>
+            )}
+            {selectedModuleData.name === "tokens" && (
+              <>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {tokensQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
+                </div>
+                {/* Issue #64: Version and compatibility notes for the tokens module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Token standard support</dt>
+                    <dd>Implements the Stellar Asset Contract (SEP-41) token interface (<code>transfer</code>, <code>transfer_from</code>, <code>approve</code>, <code>balance</code>, <code>allowance</code>).</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet SAC behavior using deterministic <code>i128</code> amounts.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Signed <code>i128</code> amounts:</strong> Token amounts and balances use <code>i128</code>; negative values or arithmetic overflows panic just like the Soroban SAC.</li>
+                    <li><strong>Authorization rules:</strong> <code>token.mint</code> uses test admin privileges, while <code>transfer</code> and <code>transfer_from</code> enforce standard SAC authorization.</li>
+                    <li><strong>Test isolation:</strong> Each <code>env.token()</code> test double is scoped to its own <code>TestEnv</code> and never shares balances across tests.</li>
+                  </ul>
+                </div>
+              </>
+            )}
+            {selectedModuleData.name === "auth" && (
+              <>
+                <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {authApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </div>
+                {/* Issue #68: Version and compatibility notes for the auth module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet authorization semantics (<code>require_auth</code> and <code>require_auth_for_args</code>).</dd>
+
+                    <dt>Mocking compatibility</dt>
+                    <dd>Designed for per-call <code>mock_auths</code> and generated <code>try_*</code> client methods that return <code>Result</code>.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Avoid <code>mock_all_auths</code> with <code>AuthMatrix</code>:</strong> Global auth mocking bypasses <code>require_auth</code> checks and masks missing authorization gates.</li>
+                    <li><strong>Include an unprivileged caller:</strong> <code>AuthMatrix</code> cross-checks addresses listed as allowed on other entry points; include at least one non-admin address on an open entry point.</li>
+                    <li><strong>Use <code>try_*</code> client methods:</strong> Non-<code>try</code> client methods panic on authorization failure instead of returning <code>Err</code>.</li>
+                  </ul>
+                </div>
+              </>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
               Back to all modules
