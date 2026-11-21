@@ -1754,3 +1754,49 @@ describe("Auth module version and compatibility (#68)", () => {
     expect(screen.getByText(/Global auth mocking bypasses/i)).toBeInTheDocument();
   });
 });
+
+// Issue #66 — quick-start walkthrough for the tokens module
+describe("Tokens module quick-start walkthrough (#66)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the tokens module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Add soroban-testkit as a dev-dependency/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv and SAC test double/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/tokens module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("token.mint(&alice, 1_000)");
+  });
+
+  it("copies the tokens quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy tokens module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn token_transfer_updates_balances"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/tokens module rust example copied/i);
+  });
+});

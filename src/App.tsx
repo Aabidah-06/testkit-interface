@@ -229,6 +229,41 @@ fn escrow_release_conserves_total_supply() {
     Conservation::new(initial_total, after_total).assert_holds();
 }`;
 
+const tokensQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and SAC test double",
+    detail: "Call TestEnv::new() and env.token() to spin up an isolated Stellar Asset Contract test double.",
+  },
+  {
+    title: "Mint initial test balances",
+    detail: "Generate test addresses with env.address() and fund them using token.mint(&account, amount).",
+  },
+  {
+    title: "Invoke transfers and assert balances",
+    detail: "Call token.transfer(...) or pass the token address to your contract, then verify balances with token.balance(&account).",
+  },
+] as const;
+
+const tokensExampleCode = `use soroban_testkit::core::TestEnv;
+
+#[test]
+fn token_transfer_updates_balances() {
+    let env = TestEnv::new();
+    let token = env.token();
+    let alice = env.address();
+    let bob = env.address();
+
+    token.mint(&alice, 1_000);
+    token.transfer(&alice, &bob, 350);
+
+    assert_eq!(token.balance(&alice), 650);
+    assert_eq!(token.balance(&bob), 350);
+}`;
+
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
   { key: "open" as const, label: "Open report", summary: "--open" },
@@ -1150,6 +1185,19 @@ export default function App() {
             {selectedModuleData.name === "money" && (
               <div className="module-doc-section">
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
+              </div>
+            )}
+            {selectedModuleData.name === "tokens" && (
+              <div className="module-doc-section">
+                <h3>Quick-start walkthrough</h3>
+                <ol>
+                  {tokensQuickStartSteps.map((step) => (
+                    <li key={step.title}>
+                      <strong>{step.title}:</strong> {step.detail}
+                    </li>
+                  ))}
+                </ol>
+                {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
               </div>
             )}
             {selectedModuleData.name === "auth" && (
