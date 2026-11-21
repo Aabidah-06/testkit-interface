@@ -1625,3 +1625,32 @@ describe("Tokens module troubleshooting FAQ (#63)", () => {
     expect(screen.getByText(/Transfer or deposit panics with insufficient balance/i)).toBeInTheDocument();
   });
 });
+
+describe("Tokens module runnable Rust example (#60)", () => {
+  it("renders a keyboard-focusable runnable Rust example and copies it on activation", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    const region = screen.getByRole("region", {
+      name: /runnable rust example for the tokens module/i,
+    });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region.textContent).toContain("MockToken::deploy");
+    expect(region.textContent).toContain("transfer_updates_balances");
+
+    const copyBtn = screen.getByRole("button", { name: /copy tokens rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn transfer_updates_balances()"));
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/tokens rust example copied/i);
+  });
+});

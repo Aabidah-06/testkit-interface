@@ -369,6 +369,26 @@ function highlightCommand(command: string): React.ReactNode {
   return parts;
 }
 
+const TOKENS_RUST_EXAMPLE = `use soroban_testkit::core::TestEnv;
+use soroban_testkit::tokens::MockToken;
+
+#[test]
+fn transfer_updates_balances() {
+    let env = TestEnv::new();
+    env.env().mock_all_auths();
+
+    let admin = env.address();
+    let alice = env.address();
+    let bob = env.address();
+
+    let token = MockToken::deploy(&env, &admin);
+    token.mint(&alice, &10_000_000);
+    token.transfer(&alice, &bob, &2_500_000);
+
+    assert_eq!(token.balance(&alice), 7_500_000);
+    assert_eq!(token.balance(&bob), 2_500_000);
+}`;
+
 export default function App() {
   const [command, setCommand] = useState<CommandName>("coverage");
   const [path, setPath] = useState(".");
@@ -438,6 +458,8 @@ export default function App() {
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
   // Issue #63: Troubleshooting FAQ for the tokens module
   const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
+  // Issue #60: Runnable Rust example for the tokens module
+  const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -984,6 +1006,38 @@ export default function App() {
             )}
             {selectedModuleData.name === "tokens" && (
               <div className="module-tokens-sections">
+                {/* Issue #60: Runnable Rust example for the tokens module */}
+                <article className="guide-card">
+                  <div className="guide-header">
+                    <h3>Runnable Rust example</h3>
+                    <button
+                      type="button"
+                      className="guide-toggle"
+                      aria-label="Copy tokens Rust example"
+                      onClick={async () => {
+                        await copyToClipboard(TOKENS_RUST_EXAMPLE);
+                        setTokensExampleCopied(true);
+                        setAnnouncement("Tokens Rust example copied to clipboard");
+                        window.setTimeout(() => setTokensExampleCopied(false), 3000);
+                      }}
+                    >
+                      {tokensExampleCopied ? "Copied" : "Copy example"}
+                    </button>
+                  </div>
+                  <div className="guide-panel">
+                    <p>
+                      Save this test in <code>tests/tokens.rs</code> with <code>soroban-testkit</code> as a dev-dependency, then run <code>cargo test</code>:
+                    </p>
+                    <pre
+                      role="region"
+                      aria-label="Runnable Rust example for the tokens module"
+                      tabIndex={0}
+                    >
+                      <code>{TOKENS_RUST_EXAMPLE}</code>
+                    </pre>
+                  </div>
+                </article>
+
                 {/* Issue #63: Troubleshooting FAQ for the tokens module */}
                 <article className="guide-card">
                   <div className="guide-header">

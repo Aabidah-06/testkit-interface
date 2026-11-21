@@ -2,6 +2,32 @@
 
 `soroban_testkit::tokens` provides Stellar Asset Contract (SAC) test doubles, minting helpers, and balance conservation checks for contract tests.
 
+## Runnable example
+
+Put this in a test file of your contract crate (for example `tests/tokens.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:
+
+```rust
+use soroban_testkit::core::TestEnv;
+use soroban_testkit::tokens::MockToken;
+
+#[test]
+fn transfer_updates_balances() {
+    let env = TestEnv::new();
+    env.env().mock_all_auths();
+
+    let admin = env.address();
+    let alice = env.address();
+    let bob = env.address();
+
+    let token = MockToken::deploy(&env, &admin);
+    token.mint(&alice, &10_000_000);
+    token.transfer(&alice, &bob, &2_500_000);
+
+    assert_eq!(token.balance(&alice), 7_500_000);
+    assert_eq!(token.balance(&bob), 2_500_000);
+}
+```
+
 ## Troubleshooting FAQ
 
 **Transfer or deposit panics with insufficient balance.**
