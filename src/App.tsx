@@ -143,6 +143,29 @@ fn deposit_emits_typed_transfer_event() {
     log.assert_data::<i128>(&contract_id, 250);
 }`;
 
+const eventsFailureModes = [
+  {
+    title: "expected N events, found M",
+    detail:
+      "Setup calls (such as token minting or initialization) ran inside EventLog::capture, or a cross-contract call emitted an extra event. Move setup before capture or filter by contract_id.",
+  },
+  {
+    title: "topic mismatch at index",
+    detail:
+      "Soroban encodes Symbol topics differently from String values. Use symbol_short! or Symbol::new to match the exact topic type emitted by the contract.",
+  },
+  {
+    title: "failed to decode event data as T",
+    detail:
+      "The Rust type passed to assert_data::<T> does not match the XDR type emitted by env.events().publish(...) (for example u128 vs i128, or a tuple vs a struct).",
+  },
+  {
+    title: "no events captured for contract",
+    detail:
+      "The contract invocation panicked before publishing, or EventLog::capture was called on a different TestEnv instance than the contract client.",
+  },
+] as const;
+
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
   { key: "open" as const, label: "Open report", summary: "--open" },
@@ -1034,6 +1057,14 @@ export default function App() {
                     <code>{eventsExampleCode}</code>
                   </pre>
                 </div>
+                <h3>Common failure modes</h3>
+                <ul>
+                  {eventsFailureModes.map((mode) => (
+                    <li key={mode.title}>
+                      <strong>{mode.title}:</strong> {mode.detail}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>

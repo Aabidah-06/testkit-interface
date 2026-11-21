@@ -1652,3 +1652,17 @@ describe("Events module runnable Rust example (#54)", () => {
     expect(liveRegion?.textContent).toMatch(/events module rust example copied/i);
   });
 });
+
+// Issue #53 — common failure modes for the events module
+describe("Events module common failure modes (#53)", () => {
+  it("documents common failure modes when viewing the events module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/expected N events, found M/i)).toBeInTheDocument();
+    expect(screen.getByText(/topic mismatch at index/i)).toBeInTheDocument();
+    expect(screen.getByText(/failed to decode event data as T/i)).toBeInTheDocument();
+    expect(screen.getByText(/no events captured for contract/i)).toBeInTheDocument();
+  });
+});

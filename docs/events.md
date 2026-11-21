@@ -29,3 +29,10 @@ fn deposit_emits_typed_transfer_event() {
 ```
 
 In a real contract test, wrap the single contract call you want to inspect inside `EventLog::capture` so unrelated setup calls do not pollute the captured event list.
+
+## Common failure modes
+
+- **`expected N events, found M`**: setup calls (such as `token.mint` or initialization) ran inside `EventLog::capture`, or a cross-contract call emitted an extra event. Move setup before `EventLog::capture`, or filter by `contract_id`.
+- **`topic mismatch at index ...`**: Soroban encodes `Symbol` topics differently from `String` values. Use `symbol_short!` (or `Symbol::new`) to match the exact topic type emitted by the contract.
+- **`failed to decode event data as T`**: the Rust type passed to `assert_data::<T>` does not match the XDR type emitted by `env.events().publish(...)` (for example `u128` vs `i128`, or a tuple vs a struct).
+- **`no events captured for contract`**: the contract invocation panicked before publishing, or `EventLog::capture` was called on a different `TestEnv` instance than the contract client.
