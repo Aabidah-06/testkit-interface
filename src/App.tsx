@@ -462,6 +462,8 @@ export default function App() {
   const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
   // Issue #62: Troubleshooting FAQ for the events module
   const [eventsFaqOpen, setEventsFaqOpen] = useState(false);
+  // Issue #61: Quick-start walkthrough for the events module
+  const [eventsQuickStartOpen, setEventsQuickStartOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -1008,6 +1010,60 @@ export default function App() {
             )}
             {selectedModuleData.name === "events" && (
               <div className="module-events-sections">
+                {/* Issue #61: Quick-start walkthrough for the events module */}
+                <article className="guide-card">
+                  <div className="guide-header">
+                    <h3>Quick-start walkthrough</h3>
+                    <button
+                      type="button"
+                      className="guide-toggle"
+                      aria-expanded={eventsQuickStartOpen}
+                      aria-controls="events-quickstart-panel"
+                      onClick={() => setEventsQuickStartOpen((open) => !open)}
+                    >
+                      {eventsQuickStartOpen ? "Hide walkthrough" : "Show walkthrough"}
+                    </button>
+                  </div>
+                  {eventsQuickStartOpen && (
+                    <div id="events-quickstart-panel" className="guide-panel">
+                      <ol>
+                        <li>
+                          <strong>Add the dev-dependency:</strong> Run <code>cargo add --dev soroban-testkit</code> in your contract crate.
+                        </li>
+                        <li>
+                          <strong>Create the test environment:</strong> Initialize <code>TestEnv::new()</code> and register your contract client.
+                        </li>
+                        <li>
+                          <strong>Capture events during invocation:</strong> Wrap your contract call with <code>EventLog::capture</code> to record all emitted events.
+                        </li>
+                        <li>
+                          <strong>Assert topics and payload:</strong> Filter by contract address and verify the expected topic symbols and typed data payload.
+                        </li>
+                      </ol>
+                      <pre
+                        role="region"
+                        aria-label="Events module quick-start Rust snippet"
+                        tabIndex={0}
+                      >
+                        <code>{`use soroban_sdk::symbol_short;
+use soroban_testkit::core::TestEnv;
+use soroban_testkit::events::EventLog;
+
+let env = TestEnv::new();
+let id = env.env().register(Vault, ());
+let client = VaultClient::new(env.env(), &id);
+
+let log = EventLog::capture(&env, || {
+    client.deposit(&env.address(), &500);
+});
+
+log.for_contract(&id)
+    .assert_emitted::<i128>((symbol_short!("deposit"),), &500);`}</code>
+                      </pre>
+                    </div>
+                  )}
+                </article>
+
                 {/* Issue #62: Troubleshooting FAQ for the events module */}
                 <article className="guide-card">
                   <div className="guide-header">

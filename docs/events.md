@@ -2,6 +2,33 @@
 
 `soroban_testkit::events` captures contract-emitted events and provides typed topic and payload assertions for deterministic tests.
 
+## Quick start
+
+1. Add the crate: `cargo add --dev soroban-testkit`.
+2. Initialize `TestEnv::new()` and register your contract.
+3. Capture events during a contract invocation with `EventLog::capture`:
+
+   ```rust
+   use soroban_sdk::symbol_short;
+   use soroban_testkit::core::TestEnv;
+   use soroban_testkit::events::EventLog;
+
+   let env = TestEnv::new();
+   let id = env.env().register(Vault, ());
+   let client = VaultClient::new(env.env(), &id);
+
+   let log = EventLog::capture(&env, || {
+       client.deposit(&env.address(), &500);
+   });
+   ```
+
+4. Filter by contract and assert the expected topic and payload:
+
+   ```rust
+   log.for_contract(&id)
+       .assert_emitted::<i128>((symbol_short!("deposit"),), &500);
+   ```
+
 ## Troubleshooting FAQ
 
 **No events captured after calling a contract method.**

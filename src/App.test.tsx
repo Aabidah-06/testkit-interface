@@ -1672,3 +1672,28 @@ describe("Events module troubleshooting FAQ (#62)", () => {
     expect(screen.getByText(/No events captured after calling a contract method/i)).toBeInTheDocument();
   });
 });
+
+describe("Events module quick-start walkthrough (#61)", () => {
+  it("renders a keyboard-accessible quick-start walkthrough in the events module view", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    const toggle = screen.getByRole("button", { name: /show walkthrough/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "events-quickstart-panel");
+    expect(document.getElementById("events-quickstart-panel")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /hide walkthrough/i })).toBeInTheDocument();
+    const panel = document.getElementById("events-quickstart-panel");
+    expect(panel).toBeInTheDocument();
+    expect(screen.getByText(/Add the dev-dependency:/i)).toBeInTheDocument();
+
+    const codeRegion = screen.getByRole("region", {
+      name: /events module quick-start rust snippet/i,
+    });
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("EventLog::capture");
+  });
+});
