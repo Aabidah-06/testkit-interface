@@ -383,6 +383,14 @@ const coveragePrerequisites = [
   { id: "tests-pass", label: "Local test suite runs successfully" },
 ];
 
+// Issue #78: Preflight checklist for coverage workflow
+const coveragePreflight = [
+  { id: "workspace-root", label: "Target path points to a Cargo contract workspace" },
+  { id: "llvm-tools", label: "llvm-tools-preview component is installed for cargo-llvm-cov" },
+  { id: "clean-tests", label: "Unit and integration tests compile and pass with cargo test" },
+  { id: "output-format", label: "Report format (--format html, lcov, or text) matches your workflow" },
+];
+
 // Issue #79: Advanced options for coverage workflow
 export const coverageAdvancedOptions = [
   { id: "threads", label: "Number of parallel test threads", type: "number", default: "4" },
@@ -570,6 +578,9 @@ export default function App() {
   // Issue #81: Prerequisites checklist for coverage workflow
   const [coveragePrerequisitesOpen, setCoveragePrerequisitesOpen] = useState(false);
   const [checkedCoveragePrerequisites, setCheckedCoveragePrerequisites] = useState<Record<string, boolean>>({});
+  // Issue #78: Preflight checklist for coverage workflow
+  const [coveragePreflightOpen, setCoveragePreflightOpen] = useState(false);
+  const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
   const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
@@ -2805,6 +2816,49 @@ soroban-testkit = "0.2.0"`}</code>
                 <li>Install cargo-llvm-cov for coverage report generation: <code>cargo install cargo-llvm-cov</code></li>
                 <li>Verify testkit-cli is installed and accessible: <code>soroban-testkit --version</code></li>
                 <li>Run your test suite locally to confirm all tests pass: <code>cargo test</code></li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #78: Preflight checklist for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Preflight checklist</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coveragePreflightOpen}
+              aria-controls="coverage-preflight-panel"
+              onClick={() => setCoveragePreflightOpen((open) => !open)}
+            >
+              {coveragePreflightOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {coveragePreflightOpen && (
+            <div id="coverage-preflight-panel" className="guide-panel">
+              <fieldset className="coverage-preflight">
+                <legend>Before hitting run, verify these:</legend>
+                {coveragePreflight.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedCoveragePreflight[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedCoveragePreflight((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Confirm the target path contains a valid <code>Cargo.toml</code> for your Soroban contract</li>
+                <li>Ensure <code>llvm-tools-preview</code> is installed: <code>rustup component add llvm-tools-preview</code></li>
+                <li>Verify your contract tests pass under <code>cargo test</code> so coverage data is complete</li>
+                <li>Choose <code>html</code> with <code>--open</code> for local inspection, <code>lcov</code> for CI, or <code>text</code> for terminal summaries</li>
               </ol>
             </div>
           )}

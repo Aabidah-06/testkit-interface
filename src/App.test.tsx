@@ -1814,3 +1814,35 @@ describe("Tokens module version and compatibility (#64)", () => {
     expect(screen.getByText(/negative values or arithmetic overflows panic/i)).toBeInTheDocument();
   });
 });
+
+// Issue #78 — preflight checklist for the coverage workflow
+describe("Coverage workflow preflight checklist (#78)", () => {
+  it("toggles the coverage preflight checklist and allows checking items", () => {
+    render(<App />);
+
+    const heading = screen.getByRole("heading", { name: /coverage workflow: preflight checklist/i });
+    const card = heading.closest("article");
+    expect(card).not.toBeNull();
+
+    const toggleButton = within(card as HTMLElement).getByRole("button", { name: /show checklist/i });
+    expect(toggleButton).toHaveAttribute("aria-expanded", "false");
+    expect(toggleButton).toHaveAttribute("aria-controls", "coverage-preflight-panel");
+
+    fireEvent.click(toggleButton);
+    expect(toggleButton).toHaveAttribute("aria-expanded", "true");
+    expect(toggleButton).toHaveTextContent(/hide checklist/i);
+
+    const workspaceCheckbox = within(card as HTMLElement).getByRole("checkbox", {
+      name: /target path points to a cargo contract workspace/i,
+    });
+    expect(workspaceCheckbox).not.toBeChecked();
+    fireEvent.click(workspaceCheckbox);
+    expect(workspaceCheckbox).toBeChecked();
+
+    expect(
+      within(card as HTMLElement).getByRole("checkbox", {
+        name: /llvm-tools-preview component is installed/i,
+      })
+    ).toBeInTheDocument();
+  });
+});
