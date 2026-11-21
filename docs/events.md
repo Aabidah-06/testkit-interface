@@ -2,6 +2,15 @@
 
 `soroban_testkit::events` captures contract-emitted events during a test invocation and provides typed assertions so state-change notifications are verified alongside return values.
 
+## API overview
+
+- `EventLog::capture(&env, || { ... })` — runs a closure against `TestEnv` and records all contract events emitted during that call.
+- `log.assert_count(n)` — fails with a summary of captured events if the total count does not equal `n`.
+- `log.assert_topic(&contract_id, topics)` — verifies that a captured event from `contract_id` matches the expected Soroban topic tuple.
+- `log.assert_data::<T>(&contract_id, expected)` — decodes the event payload as `T` and asserts equality against `expected`.
+- `log.for_contract(&contract_id)` — returns only the events emitted by a specific contract address, isolating cross-contract calls.
+- `log.len()` / `log.is_empty()` — inspects the number of captured events without panicking.
+
 ## Runnable example
 
 Put this in a test file of your contract crate (for example `tests/events.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:

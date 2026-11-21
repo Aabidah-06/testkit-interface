@@ -1666,3 +1666,18 @@ describe("Events module common failure modes (#53)", () => {
     expect(screen.getByText(/no events captured for contract/i)).toBeInTheDocument();
   });
 });
+
+// Issue #56 — concise API overview for the events module
+describe("Events module API overview (#56)", () => {
+  it("renders a concise API overview when viewing the events module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("EventLog::capture(&env, f)")).toBeInTheDocument();
+    expect(screen.getByText("log.assert_count(n)")).toBeInTheDocument();
+    expect(screen.getByText("log.assert_topic(&id, topics)")).toBeInTheDocument();
+    expect(screen.getByText("log.assert_data::<T>(&id, val)")).toBeInTheDocument();
+    expect(screen.getByText("log.for_contract(&id)")).toBeInTheDocument();
+  });
+});

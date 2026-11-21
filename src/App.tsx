@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildCommand,
   formatCommandLine,
@@ -163,6 +163,29 @@ const eventsFailureModes = [
     title: "no events captured for contract",
     detail:
       "The contract invocation panicked before publishing, or EventLog::capture was called on a different TestEnv instance than the contract client.",
+  },
+] as const;
+
+const eventsApiOverview = [
+  {
+    symbol: "EventLog::capture(&env, f)",
+    summary: "Executes f against TestEnv and captures all contract events emitted during the invocation.",
+  },
+  {
+    symbol: "log.assert_count(n)",
+    summary: "Asserts that exactly n events were captured, printing a diagnostic summary on mismatch.",
+  },
+  {
+    symbol: "log.assert_topic(&id, topics)",
+    summary: "Verifies that a captured event from id matches the expected Soroban topic tuple.",
+  },
+  {
+    symbol: "log.assert_data::<T>(&id, val)",
+    summary: "Decodes the event data payload as T and asserts equality against val.",
+  },
+  {
+    symbol: "log.for_contract(&id)",
+    summary: "Filters captured events to those emitted by a single contract address.",
   },
 ] as const;
 
@@ -1036,6 +1059,17 @@ export default function App() {
             )}
             {selectedModuleData.name === "events" && (
               <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {eventsApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
                 <h3>Runnable Rust example</h3>
                 <p>
                   Put this in a test file of your contract crate (for example <code>tests/events.rs</code>), with{" "}
