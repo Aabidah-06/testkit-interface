@@ -67,3 +67,14 @@ For a single call, use `env.assert_requires_auth(|| { /* call without auth */ })
   - **Do not mix `mock_all_auths` with `AuthMatrix`**: enabling `mock_all_auths` globally bypasses `require_auth` checks and causes unauthorized callers to succeed.
   - **Register every test actor**: `AuthMatrix` only tests addresses that appear as `allowed` on at least one entry point; include an unprivileged address on an open entry point or register a dedicated probe.
   - **Use `try_*` client methods**: non-`try` client methods panic on authorization failures instead of returning `Err`, which prevents `AuthMatrix` from inspecting the rejection.
+
+## Troubleshooting FAQ
+
+- **Why does an unauthorized caller succeed in `AuthMatrix`?**
+  Global auth mocking (`mock_all_auths`) is enabled, or the entry point never calls `require_auth()`. Remove `mock_all_auths()` from auth tests and mock per-call auths for the tested caller with `try_*` client methods.
+- **Why did `AuthMatrix` pass even though an unprivileged address was not rejected?**
+  `AuthMatrix` only tests addresses that appear in at least one entry point's `allowed` slice. Register the unprivileged address as allowed on an open entry point (such as `deposit` or a read-only probe) so it becomes a known caller.
+- **Why does my test panic instead of returning `Err` for disallowed callers?**
+  The closure invokes the standard contract client method, which panics on `HostError`/`AuthError`. Call the generated `try_*` client method inside the closure and map `Ok`/`Err` so `AuthMatrix` can inspect rejections.
+- **Why does `env.assert_requires_auth` fail with "succeeded without authorization"?**
+  The contract entry point did not invoke `address.require_auth()` or `require_auth_for_args()` before returning. Add `require_auth()` on the authorizing address at the start of the privileged contract method.

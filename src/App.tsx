@@ -248,6 +248,36 @@ fn only_owner_can_withdraw() {
         .assert_enforced();
 }`;
 
+const authTroubleshootingFaq = [
+  {
+    id: "unauthorized-succeeds",
+    question: "Why does an unauthorized caller succeed in AuthMatrix?",
+    cause: "Global auth mocking (mock_all_auths) is enabled, or the entry point never calls require_auth().",
+    solution:
+      "Remove mock_all_auths() from auth tests and mock per-call auths for the tested caller with try_* client methods.",
+  },
+  {
+    id: "attacker-never-tested",
+    question: "Why did AuthMatrix pass even though an unprivileged address was not rejected?",
+    cause: "AuthMatrix only tests addresses that appear in at least one entry point's allowed slice.",
+    solution:
+      "Register the unprivileged address as allowed on an open entry point (such as deposit or a read-only probe) so it becomes a known caller.",
+  },
+  {
+    id: "matrix-panics-instead-of-err",
+    question: "Why does my test panic instead of returning Err for disallowed callers?",
+    cause: "The closure invokes the standard contract client method, which panics on HostError/AuthError.",
+    solution:
+      "Call the generated try_* client method inside the closure and map Ok/Err so AuthMatrix can inspect rejections.",
+  },
+  {
+    id: "assert-requires-auth-fails",
+    question: "Why does env.assert_requires_auth fail with 'succeeded without authorization'?",
+    cause: "The contract entry point did not invoke address.require_auth() or require_auth_for_args() before returning.",
+    solution: "Add require_auth() on the authorizing address at the start of the privileged contract method.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -644,6 +674,8 @@ export default function App() {
   // Issue #78: Preflight checklist for coverage workflow
   const [coveragePreflightOpen, setCoveragePreflightOpen] = useState(false);
   const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
+  // Issue #69: Troubleshooting FAQ for the auth module
+  const [openAuthFaqIds, setOpenAuthFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
   const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
@@ -1355,6 +1387,41 @@ export default function App() {
                     <li><strong>Include an unprivileged caller:</strong> <code>AuthMatrix</code> cross-checks addresses listed as allowed on other entry points; include at least one non-admin address on an open entry point.</li>
                     <li><strong>Use <code>try_*</code> client methods:</strong> Non-<code>try</code> client methods panic on authorization failure instead of returning <code>Err</code>.</li>
                   </ul>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="auth-faq-list">
+                    {authTroubleshootingFaq.map((item) => {
+                      const isOpen = openAuthFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`auth-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenAuthFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`auth-faq-panel-${item.id}`} className="guide-panel">
+                              <p>
+                                <strong>Cause:</strong> {item.cause}
+                              </p>
+                              <p>
+                                <strong>Solution:</strong> {item.solution}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </>
             )}

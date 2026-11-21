@@ -1906,3 +1906,31 @@ describe("Auth module quick-start walkthrough (#70)", () => {
     expect(liveRegion?.textContent).toMatch(/auth module rust example copied/i);
   });
 });
+
+// Issue #69 — troubleshooting FAQ for the auth module
+describe("Auth module troubleshooting FAQ (#69)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ when viewing the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /troubleshooting faq/i })).toBeInTheDocument();
+
+    const firstQuestionBtn = screen.getByRole("button", {
+      name: /why does an unauthorized caller succeed in authmatrix\?/i,
+    });
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    expect(firstQuestionBtn).toHaveAttribute("aria-controls", "auth-faq-panel-unauthorized-succeeds");
+
+    fireEvent.click(firstQuestionBtn);
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Remove mock_all_auths\(\) from auth tests/i)).toBeInTheDocument();
+
+    const secondQuestionBtn = screen.getByRole("button", {
+      name: /why does my test panic instead of returning err for disallowed callers\?/i,
+    });
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(secondQuestionBtn);
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Call the generated try_\* client method inside the closure/i)).toBeInTheDocument();
+  });
+});
