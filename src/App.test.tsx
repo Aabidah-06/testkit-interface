@@ -1846,3 +1846,17 @@ describe("Coverage workflow preflight checklist (#78)", () => {
     ).toBeInTheDocument();
   });
 });
+
+// Issue #67 — common failure modes for the tokens module
+describe("Tokens module common failure modes (#67)", () => {
+  it("documents common failure modes when viewing the tokens module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/insufficient balance/i)).toBeInTheDocument();
+    expect(screen.getByText(/negative amount or overflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/allowance exceeded or missing approval/i)).toBeInTheDocument();
+    expect(screen.getByText(/authorization error on transfer/i)).toBeInTheDocument();
+  });
+});

@@ -264,6 +264,29 @@ fn token_transfer_updates_balances() {
     assert_eq!(token.balance(&bob), 350);
 }`;
 
+const tokensFailureModes = [
+  {
+    title: "insufficient balance",
+    detail:
+      "token.transfer or token.transfer_from panicked because the sender balance was lower than the requested amount. Mint funds with token.mint(&from, amount) before transferring.",
+  },
+  {
+    title: "negative amount or overflow",
+    detail:
+      "Soroban SAC amounts are signed i128 values. Passing a negative amount or overflowing i128::MAX panics immediately.",
+  },
+  {
+    title: "allowance exceeded or missing approval",
+    detail:
+      "token.transfer_from requires a prior token.approve(&owner, &spender, amount, expiration_ledger) that covers the transfer amount and has not expired.",
+  },
+  {
+    title: "authorization error on transfer",
+    detail:
+      "Unlike token.mint (which uses test admin privileges), token.transfer and token.approve enforce SAC auth. Mock auth for the sender or owner when testing without mock_all_auths.",
+  },
+] as const;
+
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
   { key: "open" as const, label: "Open report", summary: "--open" },
@@ -1210,6 +1233,14 @@ export default function App() {
                     ))}
                   </ol>
                   {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
+                  <h3>Common failure modes</h3>
+                  <ul>
+                    {tokensFailureModes.map((mode) => (
+                      <li key={mode.title}>
+                        <strong>{mode.title}:</strong> {mode.detail}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
                 {/* Issue #64: Version and compatibility notes for the tokens module */}
                 <div className="module-version-info">
