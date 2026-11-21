@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildCommand,
   formatCommandLine,
@@ -122,6 +122,93 @@ const descriptions: Record<CommandName, string> = {
 };
 
 const defaultCoverageOrder: OptionalArgKey[] = ["format", "open"];
+
+const eventsExampleCode = `use soroban_sdk::{symbol_short, Address};
+use soroban_testkit::core::TestEnv;
+use soroban_testkit::events::EventLog;
+
+#[test]
+fn deposit_emits_typed_transfer_event() {
+    let env = TestEnv::new();
+    let contract_id = env.env().register(Vault, ());
+    let client = VaultClient::new(env.env(), &contract_id);
+    let sender: Address = env.address();
+
+    let log = EventLog::capture(&env, || {
+        client.deposit(&sender, &250);
+    });
+
+    log.assert_count(1);
+    log.assert_topic(&contract_id, (symbol_short!("deposit"), sender.clone()));
+    log.assert_data::<i128>(&contract_id, 250);
+}`;
+
+const eventsFailureModes = [
+  {
+    title: "expected N events, found M",
+    detail:
+      "Setup calls (such as token minting or initialization) ran inside EventLog::capture, or a cross-contract call emitted an extra event. Move setup before capture or filter by contract_id.",
+  },
+  {
+    title: "topic mismatch at index",
+    detail:
+      "Soroban encodes Symbol topics differently from String values. Use symbol_short! or Symbol::new to match the exact topic type emitted by the contract.",
+  },
+  {
+    title: "failed to decode event data as T",
+    detail:
+      "The Rust type passed to assert_data::<T> does not match the XDR type emitted by env.events().publish(...) (for example u128 vs i128, or a tuple vs a struct).",
+  },
+  {
+    title: "no events captured for contract",
+    detail:
+      "The contract invocation panicked before publishing, or EventLog::capture was called on a different TestEnv instance than the contract client.",
+  },
+] as const;
+
+const eventsApiOverview = [
+  {
+    symbol: "EventLog::capture(&env, f)",
+    summary: "Executes f against TestEnv and captures all contract events emitted during the invocation.",
+  },
+  {
+    symbol: "log.assert_count(n)",
+    summary: "Asserts that exactly n events were captured, printing a diagnostic summary on mismatch.",
+  },
+  {
+    symbol: "log.assert_topic(&id, topics)",
+    summary: "Verifies that a captured event from id matches the expected Soroban topic tuple.",
+  },
+  {
+    symbol: "log.assert_data::<T>(&id, val)",
+    summary: "Decodes the event data payload as T and asserts equality against val.",
+  },
+  {
+    symbol: "log.for_contract(&id)",
+    summary: "Filters captured events to those emitted by a single contract address.",
+  },
+] as const;
+
+const moneyExampleCode = `use soroban_testkit::core::TestEnv;
+use soroban_testkit::money::Conservation;
+
+#[test]
+fn escrow_release_conserves_total_supply() {
+    let env = TestEnv::new();
+    let token = env.token();
+    let buyer = env.address();
+    let seller = env.address();
+    let escrow = env.address();
+
+    token.mint(&buyer, 1_000);
+    let initial_total = token.balance(&buyer) + token.balance(&seller) + token.balance(&escrow);
+
+    token.transfer(&buyer, &escrow, 1_000);
+    token.transfer(&escrow, &seller, 600);
+
+    let after_total = token.balance(&buyer) + token.balance(&seller) + token.balance(&escrow);
+    Conservation::new(initial_total, after_total).assert_holds();
+}`;
 
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
@@ -380,6 +467,7 @@ export default function App() {
   const [shell, setShell] = useState<"bash" | "zsh" | "fish" | "sh">("bash");
   const [copied, setCopied] = useState(false);
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
+  const [copiedModuleExample, setCopiedModuleExample] = useState<string | null>(null);
   const [copiedWithComments, setCopiedWithComments] = useState(false);
   const [copiedAsScript, setCopiedAsScript] = useState(false);
   // Issue #143: Command history for restore functionality
@@ -719,6 +807,42 @@ export default function App() {
     }, 3000);
   };
 
+  const copyModuleExample = async (moduleName: string, exampleCode: string) => {
+    await copyToClipboard(exampleCode);
+    setCopiedModuleExample(moduleName);
+    setAnnouncement(`${moduleName} module Rust example copied to clipboard`);
+    window.setTimeout(() => {
+      setCopiedModuleExample(null);
+      setAnnouncement("");
+    }, 3000);
+  };
+
+  const renderModuleExample = (moduleName: string, filePath: string, code: string) => (
+    <>
+      <h3>Runnable Rust example</h3>
+      <p>
+        Put this in a test file of your contract crate (for example <code>{filePath}</code>), with{" "}
+        <code>soroban-testkit</code> as a dev-dependency, then run <code>cargo test</code>:
+      </p>
+      <div className="module-code-block">
+        <div className="module-code-header">
+          <span>{filePath}</span>
+          <button
+            type="button"
+            className="button secondary"
+            aria-label={`Copy ${moduleName} module Rust example`}
+            onClick={() => copyModuleExample(moduleName, code)}
+          >
+            {copiedModuleExample === moduleName ? "Copied" : "Copy example"}
+          </button>
+        </div>
+        <pre tabIndex={0} aria-label={`${moduleName} module runnable Rust example`}>
+          <code>{code}</code>
+        </pre>
+      </div>
+    </>
+  );
+
   // #146 — download generated command as shell script
   const downloadCommand = () => {
     const scriptContent = `#!/bin/bash\n\n# Generated by Soroban Testkit Interface\n# ${new Date().toISOString()}\n\n${generated}\n`;
@@ -978,6 +1102,35 @@ export default function App() {
                   <li><strong>Deterministic testing:</strong> TTL values in tests are deterministic. Use <code>env.ledger().sequence()</code> to control ledger time explicitly.</li>
                   <li><strong>Persistent vs. temporary:</strong> Different storage types (persistent vs. temporary) have different TTL semantics. Test both using the testkit module.</li>
                 </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "events" && (
+              <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {eventsApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+                {renderModuleExample("events", "tests/events.rs", eventsExampleCode)}
+                <h3>Common failure modes</h3>
+                <ul>
+                  {eventsFailureModes.map((mode) => (
+                    <li key={mode.title}>
+                      <strong>{mode.title}:</strong> {mode.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "money" && (
+              <div className="module-doc-section">
+                {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
               </div>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
