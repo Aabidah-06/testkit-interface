@@ -1607,3 +1607,48 @@ describe("Copied status persistence for assistive technology (#103)", () => {
     expect(liveRegion?.textContent).toMatch(/copied/i);
   });
 });
+
+// Issue #54 — runnable Rust example for the events module
+describe("Events module runnable Rust example (#54)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a runnable Rust example when viewing the events module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    expect(screen.getByRole("heading", { name: /runnable rust example/i })).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/events module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("soroban_testkit::events::EventLog");
+    expect(codeRegion.textContent).toContain("EventLog::capture");
+  });
+
+  it("copies the events Rust example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy events module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn deposit_emits_typed_transfer_event"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/events module rust example copied/i);
+  });
+});
