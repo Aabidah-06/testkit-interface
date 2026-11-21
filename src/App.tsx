@@ -1188,17 +1188,42 @@ export default function App() {
               </div>
             )}
             {selectedModuleData.name === "tokens" && (
-              <div className="module-doc-section">
-                <h3>Quick-start walkthrough</h3>
-                <ol>
-                  {tokensQuickStartSteps.map((step) => (
-                    <li key={step.title}>
-                      <strong>{step.title}:</strong> {step.detail}
-                    </li>
-                  ))}
-                </ol>
-                {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
-              </div>
+              <>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {tokensQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
+                </div>
+                {/* Issue #64: Version and compatibility notes for the tokens module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Token standard support</dt>
+                    <dd>Implements the Stellar Asset Contract (SEP-41) token interface (<code>transfer</code>, <code>transfer_from</code>, <code>approve</code>, <code>balance</code>, <code>allowance</code>).</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet SAC behavior using deterministic <code>i128</code> amounts.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Signed <code>i128</code> amounts:</strong> Token amounts and balances use <code>i128</code>; negative values or arithmetic overflows panic just like the Soroban SAC.</li>
+                    <li><strong>Authorization rules:</strong> <code>token.mint</code> uses test admin privileges, while <code>transfer</code> and <code>transfer_from</code> enforce standard SAC authorization.</li>
+                    <li><strong>Test isolation:</strong> Each <code>env.token()</code> test double is scoped to its own <code>TestEnv</code> and never shares balances across tests.</li>
+                  </ul>
+                </div>
+              </>
             )}
             {selectedModuleData.name === "auth" && (
               <>

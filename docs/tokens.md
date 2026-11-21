@@ -30,3 +30,14 @@
    assert_eq!(token.balance(&alice), 650);
    assert_eq!(token.balance(&bob), 350);
    ```
+
+## Version and compatibility
+
+- **Current version**: Soroban SDK 27.0.x and later.
+- **Minimum Rust version**: Rust 1.84 or later with the `wasm32v1-none` target.
+- **Token standard support**: Implements the Stellar Asset Contract (SEP-41) token interface (`transfer`, `transfer_from`, `approve`, `balance`, `allowance`).
+- **Stellar network support**: Compatible with Testnet and Mainnet SAC behavior, using `i128` signed amounts.
+- **Known considerations**:
+  - **Signed `i128` amounts**: All token amounts and balances use `i128`; negative values or overflows panic as in the Soroban SAC.
+  - **Auth requirements on transfers**: `token.mint` uses test admin privileges, whereas `token.transfer` and `token.transfer_from` follow standard SAC authorization rules.
+  - **Isolated per `TestEnv`**: Each `env.token()` instance is scoped to its `TestEnv` and does not share state across tests.

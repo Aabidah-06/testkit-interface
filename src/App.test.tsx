@@ -1800,3 +1800,17 @@ describe("Tokens module quick-start walkthrough (#66)", () => {
     expect(liveRegion?.textContent).toMatch(/tokens module rust example copied/i);
   });
 });
+
+// Issue #64 — version and compatibility notes for the tokens module
+describe("Tokens module version and compatibility (#64)", () => {
+  it("documents version and compatibility notes when viewing the tokens module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/negative values or arithmetic overflows panic/i)).toBeInTheDocument();
+  });
+});
