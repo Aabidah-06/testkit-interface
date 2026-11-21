@@ -208,6 +208,76 @@ const authApiOverview = [
   },
 ] as const;
 
+const authQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and test identities",
+    detail: "Call TestEnv::new() and env.address() to generate owner and unprivileged caller addresses.",
+  },
+  {
+    title: "Register entry points in AuthMatrix",
+    detail: "Pass each entry point name, its allowed caller slice, and a closure returning Result to .entry_point(...).",
+  },
+  {
+    title: "Run cross-checks with assert_enforced",
+    detail: "Call .assert_enforced() to verify allowed callers succeed and all other known callers are rejected.",
+  },
+] as const;
+
+const authExampleCode = `use soroban_testkit::auth::AuthMatrix;
+use soroban_testkit::core::TestEnv;
+
+#[test]
+fn only_owner_can_withdraw() {
+    let env = TestEnv::new();
+    let owner = env.address();
+    let other = env.address();
+
+    AuthMatrix::new(&env)
+        .entry_point("deposit", &[owner.clone(), other.clone()], |_caller| Ok(()))
+        .entry_point("withdraw", &[owner.clone()], |caller| {
+            if *caller == owner {
+                Ok(())
+            } else {
+                Err(soroban_sdk::Error::from_contract_error(1))
+            }
+        })
+        .assert_enforced();
+}`;
+
+const authTroubleshootingFaq = [
+  {
+    id: "unauthorized-succeeds",
+    question: "Why does an unauthorized caller succeed in AuthMatrix?",
+    cause: "Global auth mocking (mock_all_auths) is enabled, or the entry point never calls require_auth().",
+    solution:
+      "Remove mock_all_auths() from auth tests and mock per-call auths for the tested caller with try_* client methods.",
+  },
+  {
+    id: "attacker-never-tested",
+    question: "Why did AuthMatrix pass even though an unprivileged address was not rejected?",
+    cause: "AuthMatrix only tests addresses that appear in at least one entry point's allowed slice.",
+    solution:
+      "Register the unprivileged address as allowed on an open entry point (such as deposit or a read-only probe) so it becomes a known caller.",
+  },
+  {
+    id: "matrix-panics-instead-of-err",
+    question: "Why does my test panic instead of returning Err for disallowed callers?",
+    cause: "The closure invokes the standard contract client method, which panics on HostError/AuthError.",
+    solution:
+      "Call the generated try_* client method inside the closure and map Ok/Err so AuthMatrix can inspect rejections.",
+  },
+  {
+    id: "assert-requires-auth-fails",
+    question: "Why does env.assert_requires_auth fail with 'succeeded without authorization'?",
+    cause: "The contract entry point did not invoke address.require_auth() or require_auth_for_args() before returning.",
+    solution: "Add require_auth() on the authorizing address at the start of the privileged contract method.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -263,6 +333,29 @@ fn token_transfer_updates_balances() {
     assert_eq!(token.balance(&alice), 650);
     assert_eq!(token.balance(&bob), 350);
 }`;
+
+const tokensFailureModes = [
+  {
+    title: "insufficient balance",
+    detail:
+      "token.transfer or token.transfer_from panicked because the sender balance was lower than the requested amount. Mint funds with token.mint(&from, amount) before transferring.",
+  },
+  {
+    title: "negative amount or overflow",
+    detail:
+      "Soroban SAC amounts are signed i128 values. Passing a negative amount or overflowing i128::MAX panics immediately.",
+  },
+  {
+    title: "allowance exceeded or missing approval",
+    detail:
+      "token.transfer_from requires a prior token.approve(&owner, &spender, amount, expiration_ledger) that covers the transfer amount and has not expired.",
+  },
+  {
+    title: "authorization error on transfer",
+    detail:
+      "Unlike token.mint (which uses test admin privileges), token.transfer and token.approve enforce SAC auth. Mock auth for the sender or owner when testing without mock_all_auths.",
+  },
+] as const;
 
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
@@ -381,6 +474,14 @@ const coveragePrerequisites = [
   { id: "llvm-cov", label: "cargo-llvm-cov installed and available" },
   { id: "testkit-cli", label: "Testkit CLI installed and on your PATH" },
   { id: "tests-pass", label: "Local test suite runs successfully" },
+];
+
+// Issue #78: Preflight checklist for coverage workflow
+const coveragePreflight = [
+  { id: "workspace-root", label: "Target path points to a Cargo contract workspace" },
+  { id: "llvm-tools", label: "llvm-tools-preview component is installed for cargo-llvm-cov" },
+  { id: "clean-tests", label: "Unit and integration tests compile and pass with cargo test" },
+  { id: "output-format", label: "Report format (--format html, lcov, or text) matches your workflow" },
 ];
 
 // Issue #79: Advanced options for coverage workflow
@@ -570,6 +671,11 @@ export default function App() {
   // Issue #81: Prerequisites checklist for coverage workflow
   const [coveragePrerequisitesOpen, setCoveragePrerequisitesOpen] = useState(false);
   const [checkedCoveragePrerequisites, setCheckedCoveragePrerequisites] = useState<Record<string, boolean>>({});
+  // Issue #78: Preflight checklist for coverage workflow
+  const [coveragePreflightOpen, setCoveragePreflightOpen] = useState(false);
+  const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
+  // Issue #69: Troubleshooting FAQ for the auth module
+  const [openAuthFaqIds, setOpenAuthFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
   const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
@@ -1199,6 +1305,14 @@ export default function App() {
                     ))}
                   </ol>
                   {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
+                  <h3>Common failure modes</h3>
+                  <ul>
+                    {tokensFailureModes.map((mode) => (
+                      <li key={mode.title}>
+                        <strong>{mode.title}:</strong> {mode.detail}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
                 {/* Issue #64: Version and compatibility notes for the tokens module */}
                 <div className="module-version-info">
@@ -1240,6 +1354,17 @@ export default function App() {
                     ))}
                   </dl>
                 </div>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {authQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("auth", "tests/auth.rs", authExampleCode)}
+                </div>
                 {/* Issue #68: Version and compatibility notes for the auth module */}
                 <div className="module-version-info">
                   <h3>Version and compatibility</h3>
@@ -1262,6 +1387,41 @@ export default function App() {
                     <li><strong>Include an unprivileged caller:</strong> <code>AuthMatrix</code> cross-checks addresses listed as allowed on other entry points; include at least one non-admin address on an open entry point.</li>
                     <li><strong>Use <code>try_*</code> client methods:</strong> Non-<code>try</code> client methods panic on authorization failure instead of returning <code>Err</code>.</li>
                   </ul>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="auth-faq-list">
+                    {authTroubleshootingFaq.map((item) => {
+                      const isOpen = openAuthFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`auth-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenAuthFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`auth-faq-panel-${item.id}`} className="guide-panel">
+                              <p>
+                                <strong>Cause:</strong> {item.cause}
+                              </p>
+                              <p>
+                                <strong>Solution:</strong> {item.solution}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </>
             )}
@@ -2805,6 +2965,49 @@ soroban-testkit = "0.2.0"`}</code>
                 <li>Install cargo-llvm-cov for coverage report generation: <code>cargo install cargo-llvm-cov</code></li>
                 <li>Verify testkit-cli is installed and accessible: <code>soroban-testkit --version</code></li>
                 <li>Run your test suite locally to confirm all tests pass: <code>cargo test</code></li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #78: Preflight checklist for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Preflight checklist</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coveragePreflightOpen}
+              aria-controls="coverage-preflight-panel"
+              onClick={() => setCoveragePreflightOpen((open) => !open)}
+            >
+              {coveragePreflightOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {coveragePreflightOpen && (
+            <div id="coverage-preflight-panel" className="guide-panel">
+              <fieldset className="coverage-preflight">
+                <legend>Before hitting run, verify these:</legend>
+                {coveragePreflight.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedCoveragePreflight[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedCoveragePreflight((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Confirm the target path contains a valid <code>Cargo.toml</code> for your Soroban contract</li>
+                <li>Ensure <code>llvm-tools-preview</code> is installed: <code>rustup component add llvm-tools-preview</code></li>
+                <li>Verify your contract tests pass under <code>cargo test</code> so coverage data is complete</li>
+                <li>Choose <code>html</code> with <code>--open</code> for local inspection, <code>lcov</code> for CI, or <code>text</code> for terminal summaries</li>
               </ol>
             </div>
           )}

@@ -31,6 +31,13 @@
    assert_eq!(token.balance(&bob), 350);
    ```
 
+## Common failure modes
+
+- **`insufficient balance`**: `token.transfer` or `token.transfer_from` panicked because the sender balance was lower than the requested amount. Fund the sender with `token.mint(&from, amount)` first.
+- **`negative amount or overflow`**: Soroban SAC amounts are signed `i128` values. Passing a negative amount or overflowing `i128::MAX` panics immediately.
+- **`allowance exceeded or missing approval`**: `token.transfer_from` requires a prior `token.approve(&owner, &spender, amount, expiration_ledger)` covering the transfer amount that has not expired.
+- **`authorization error on transfer`**: unlike `token.mint` (which uses test admin privileges), `token.transfer` and `token.approve` enforce SAC authorization. Mock auth for the sender or owner when testing without `mock_all_auths`.
+
 ## Version and compatibility
 
 - **Current version**: Soroban SDK 27.0.x and later.

@@ -1814,3 +1814,123 @@ describe("Tokens module version and compatibility (#64)", () => {
     expect(screen.getByText(/negative values or arithmetic overflows panic/i)).toBeInTheDocument();
   });
 });
+
+// Issue #78 — preflight checklist for the coverage workflow
+describe("Coverage workflow preflight checklist (#78)", () => {
+  it("toggles the coverage preflight checklist and allows checking items", () => {
+    render(<App />);
+
+    const heading = screen.getByRole("heading", { name: /coverage workflow: preflight checklist/i });
+    const card = heading.closest("article");
+    expect(card).not.toBeNull();
+
+    const toggleButton = within(card as HTMLElement).getByRole("button", { name: /show checklist/i });
+    expect(toggleButton).toHaveAttribute("aria-expanded", "false");
+    expect(toggleButton).toHaveAttribute("aria-controls", "coverage-preflight-panel");
+
+    fireEvent.click(toggleButton);
+    expect(toggleButton).toHaveAttribute("aria-expanded", "true");
+    expect(toggleButton).toHaveTextContent(/hide checklist/i);
+
+    const workspaceCheckbox = within(card as HTMLElement).getByRole("checkbox", {
+      name: /target path points to a cargo contract workspace/i,
+    });
+    expect(workspaceCheckbox).not.toBeChecked();
+    fireEvent.click(workspaceCheckbox);
+    expect(workspaceCheckbox).toBeChecked();
+
+    expect(
+      within(card as HTMLElement).getByRole("checkbox", {
+        name: /llvm-tools-preview component is installed/i,
+      })
+    ).toBeInTheDocument();
+  });
+});
+
+// Issue #67 — common failure modes for the tokens module
+describe("Tokens module common failure modes (#67)", () => {
+  it("documents common failure modes when viewing the tokens module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/insufficient balance/i)).toBeInTheDocument();
+    expect(screen.getByText(/negative amount or overflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/allowance exceeded or missing approval/i)).toBeInTheDocument();
+    expect(screen.getByText(/authorization error on transfer/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #70 — quick-start walkthrough for the auth module
+describe("Auth module quick-start walkthrough (#70)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv and test identities/i)).toBeInTheDocument();
+    expect(screen.getByText(/Register entry points in AuthMatrix/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/auth module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("fn only_owner_can_withdraw");
+  });
+
+  it("copies the auth quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy auth module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("AuthMatrix::new(&env)"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/auth module rust example copied/i);
+  });
+});
+
+// Issue #69 — troubleshooting FAQ for the auth module
+describe("Auth module troubleshooting FAQ (#69)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ when viewing the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /troubleshooting faq/i })).toBeInTheDocument();
+
+    const firstQuestionBtn = screen.getByRole("button", {
+      name: /why does an unauthorized caller succeed in authmatrix\?/i,
+    });
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    expect(firstQuestionBtn).toHaveAttribute("aria-controls", "auth-faq-panel-unauthorized-succeeds");
+
+    fireEvent.click(firstQuestionBtn);
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Remove mock_all_auths\(\) from auth tests/i)).toBeInTheDocument();
+
+    const secondQuestionBtn = screen.getByRole("button", {
+      name: /why does my test panic instead of returning err for disallowed callers\?/i,
+    });
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(secondQuestionBtn);
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Call the generated try_\* client method inside the closure/i)).toBeInTheDocument();
+  });
+});
