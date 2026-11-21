@@ -49,3 +49,14 @@ For a single call, use `env.assert_requires_auth(|| { /* call without auth */ })
 - **A gap nobody notices**: the matrix only cross-checks addresses listed as `allowed` on some entry point. An attacker address that appears nowhere is never tried, so add it to an open entry point (as `other` above) or the test passes without checking it.
 - **`expected the call to fail without authorization, but it succeeded`**: from `assert_requires_auth`. The closure returned normally, so the call did not require auth.
 - **Closure always returns `Ok`**: mapping every result to `Ok(())` hides rejections. Return `Err` whenever the `try_*` call fails.
+
+## Version and compatibility
+
+- **Current version**: Soroban SDK 27.0.x and later.
+- **Minimum Rust version**: Rust 1.84 or later with the `wasm32v1-none` target.
+- **Stellar network support**: Compatible with Testnet and Mainnet authorization semantics (`require_auth` and `require_auth_for_args`).
+- **Mocking behavior**: Works with `env.mock_auths(...)` and generated `try_*` client methods so unauthorized calls return `Err` instead of panicking.
+- **Known considerations**:
+  - **Do not mix `mock_all_auths` with `AuthMatrix`**: enabling `mock_all_auths` globally bypasses `require_auth` checks and causes unauthorized callers to succeed.
+  - **Register every test actor**: `AuthMatrix` only tests addresses that appear as `allowed` on at least one entry point; include an unprivileged address on an open entry point or register a dedicated probe.
+  - **Use `try_*` client methods**: non-`try` client methods panic on authorization failures instead of returning `Err`, which prevents `AuthMatrix` from inspecting the rejection.

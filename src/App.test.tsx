@@ -1740,3 +1740,17 @@ describe("Auth module API overview (#65)", () => {
     expect(screen.getByText("env.assert_requires_auth(|| { ... })")).toBeInTheDocument();
   });
 });
+
+// Issue #68 — version and compatibility notes for the auth module
+describe("Auth module version and compatibility (#68)", () => {
+  it("documents version and compatibility notes when viewing the auth module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for auth module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/Global auth mocking bypasses/i)).toBeInTheDocument();
+  });
+});

@@ -1153,19 +1153,44 @@ export default function App() {
               </div>
             )}
             {selectedModuleData.name === "auth" && (
-              <div className="module-doc-section">
-                <h3>API overview</h3>
-                <dl className="version-details">
-                  {authApiOverview.map((item) => (
-                    <Fragment key={item.symbol}>
-                      <dt>
-                        <code>{item.symbol}</code>
-                      </dt>
-                      <dd>{item.summary}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              </div>
+              <>
+                <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {authApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </div>
+                {/* Issue #68: Version and compatibility notes for the auth module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet authorization semantics (<code>require_auth</code> and <code>require_auth_for_args</code>).</dd>
+
+                    <dt>Mocking compatibility</dt>
+                    <dd>Designed for per-call <code>mock_auths</code> and generated <code>try_*</code> client methods that return <code>Result</code>.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Avoid <code>mock_all_auths</code> with <code>AuthMatrix</code>:</strong> Global auth mocking bypasses <code>require_auth</code> checks and masks missing authorization gates.</li>
+                    <li><strong>Include an unprivileged caller:</strong> <code>AuthMatrix</code> cross-checks addresses listed as allowed on other entry points; include at least one non-admin address on an open entry point.</li>
+                    <li><strong>Use <code>try_*</code> client methods:</strong> Non-<code>try</code> client methods panic on authorization failure instead of returning <code>Err</code>.</li>
+                  </ul>
+                </div>
+              </>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
               Back to all modules
