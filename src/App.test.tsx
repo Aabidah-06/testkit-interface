@@ -1934,3 +1934,92 @@ describe("Auth module troubleshooting FAQ (#69)", () => {
     expect(screen.getByText(/Call the generated try_\* client method inside the closure/i)).toBeInTheDocument();
   });
 });
+
+// Issue #50 — concise API overview for the money module
+describe("Money module API overview (#50)", () => {
+  it("renders a concise API overview when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("Conservation::new(before, after)")).toBeInTheDocument();
+    expect(screen.getByText(".assert_holds()")).toBeInTheDocument();
+    expect(screen.getByText("assert_conserved_over(initial, steps)")).toBeInTheDocument();
+    expect(screen.getByText("adversarial_amounts()")).toBeInTheDocument();
+  });
+});
+
+// Issue #49 — quick-start walkthrough for the money module
+describe("Money module quick-start walkthrough (#49)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Add soroban-testkit as a dev-dependency/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv, token, and test addresses/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/money module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("Conservation::new(initial_total, after_total).assert_holds()");
+  });
+
+  it("copies the money quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy money module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn escrow_release_conserves_total_supply"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/money module rust example copied/i);
+  });
+});
+
+// Issue #51 — version and compatibility notes for the ledger module
+describe("Ledger module version and compatibility (#51)", () => {
+  it("documents version and compatibility notes when viewing the ledger module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for ledger module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/Monotonic progression:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Offline deterministic state:/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #48 — common failure modes for the money module
+describe("Money module common failure modes (#48)", () => {
+  it("documents common failure modes when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/supply conservation mismatch/i)).toBeInTheDocument();
+    expect(screen.getByText(/i128 arithmetic overflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/rounding dust accumulation/i)).toBeInTheDocument();
+    expect(screen.getByText(/negative amount input/i)).toBeInTheDocument();
+  });
+});
