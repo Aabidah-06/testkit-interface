@@ -1934,3 +1934,76 @@ describe("Auth module troubleshooting FAQ (#69)", () => {
     expect(screen.getByText(/Call the generated try_\* client method inside the closure/i)).toBeInTheDocument();
   });
 });
+
+// Issue #58 — concise API overview for the tokens module
+describe("Tokens module API overview (#58)", () => {
+  it("renders a concise API overview when viewing the tokens module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("env.token()")).toBeInTheDocument();
+    expect(screen.getByText("token.address()")).toBeInTheDocument();
+    expect(screen.getByText("token.mint(&to, amount)")).toBeInTheDocument();
+    expect(screen.getByText("token.transfer(&from, &to, amount)")).toBeInTheDocument();
+    expect(screen.getByText("token.approve(&owner, &spender, amount, expiration_ledger)")).toBeInTheDocument();
+    expect(screen.getByText("token.transfer_from(&spender, &from, &to, amount)")).toBeInTheDocument();
+    expect(screen.getByText("token.balance(&id) / token.assert_balance(&id, expected)")).toBeInTheDocument();
+  });
+});
+
+// Issue #59 — version and compatibility notes for the events module
+describe("Events module version and compatibility (#59)", () => {
+  it("documents version and compatibility notes when viewing the events module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/records only events emitted during the closure/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #55 — version and compatibility notes for the money module
+describe("Money module version and compatibility (#55)", () => {
+  it("documents version and compatibility notes when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/adversarial boundary inputs test/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #57 — troubleshooting FAQ for the money module
+describe("Money module troubleshooting FAQ (#57)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /troubleshooting faq/i })).toBeInTheDocument();
+
+    const firstQuestionBtn = screen.getByRole("button", {
+      name: /why does conservation::assert_holds\(\) fail by 1 or a few stroops\?/i,
+    });
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    expect(firstQuestionBtn).toHaveAttribute("aria-controls", "money-faq-panel-conservation-off-by-one");
+
+    fireEvent.click(firstQuestionBtn);
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Route remainder or dust explicitly to a designated recipient/i)).toBeInTheDocument();
+
+    const secondQuestionBtn = screen.getByRole("button", {
+      name: /why does my contract panic on i128::max or adversarial boundary inputs\?/i,
+    });
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(secondQuestionBtn);
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/Use checked_add, checked_sub, and checked_mul/i)).toBeInTheDocument();
+  });
+});

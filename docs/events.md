@@ -45,3 +45,13 @@ In a real contract test, wrap the single contract call you want to inspect insid
 - **`topic mismatch at index ...`**: Soroban encodes `Symbol` topics differently from `String` values. Use `symbol_short!` (or `Symbol::new`) to match the exact topic type emitted by the contract.
 - **`failed to decode event data as T`**: the Rust type passed to `assert_data::<T>` does not match the XDR type emitted by `env.events().publish(...)` (for example `u128` vs `i128`, or a tuple vs a struct).
 - **`no events captured for contract`**: the contract invocation panicked before publishing, or `EventLog::capture` was called on a different `TestEnv` instance than the contract client.
+
+## Version and compatibility
+
+- **Current version**: Soroban SDK 27.0.x and later.
+- **Minimum Rust version**: Rust 1.84 or later with the `wasm32v1-none` target.
+- **Stellar network support**: Compatible with Testnet and Mainnet contract event encoding (`env.events().publish(...)` and XDR `ContractEvent`).
+- **Known considerations**:
+  - **Scoped to closure**: `EventLog::capture(&env, || { ... })` records only events emitted during the closure; setup calls outside the closure are excluded.
+  - **Cross-contract filtering**: Cross-contract invocations emit events under each emitting contract's address; use `log.for_contract(&contract_id)` to isolate events for a single contract.
+  - **Strict topic and payload typing**: Soroban distinguishes `Symbol` (`symbol_short!` / `Symbol::new`) from `String` and requires exact XDR numeric widths (`i128` vs `u128`).
