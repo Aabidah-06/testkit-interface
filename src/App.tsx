@@ -278,6 +278,25 @@ const authTroubleshootingFaq = [
   },
 ] as const;
 
+const moneyApiOverview = [
+  {
+    symbol: "Conservation::new(before, after)",
+    summary: "Captures the expected and observed total supply across participating accounts for a state transition.",
+  },
+  {
+    symbol: ".assert_holds()",
+    summary: "Asserts that before == after, panicking with the signed delta if any value was leaked or created.",
+  },
+  {
+    symbol: "assert_conserved_over(initial, steps)",
+    summary: "Verifies that total supply remains conserved after every transition in a multi-step lifecycle.",
+  },
+  {
+    symbol: "adversarial_amounts()",
+    summary: "Generates boundary and rounding-edge i128 inputs (0, 1, i128::MAX) to stress-test arithmetic and overflow handling.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -1290,6 +1309,17 @@ export default function App() {
             )}
             {selectedModuleData.name === "money" && (
               <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {moneyApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
               </div>
             )}

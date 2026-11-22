@@ -2,6 +2,13 @@
 
 `soroban_testkit::money` provides adversarial numeric inputs and token conservation assertions so rounding errors, overflow boundaries, and leaked balances fail tests immediately.
 
+## API overview
+
+- `Conservation::new(before, after)` — captures the expected and observed total supply across participating accounts for a state transition.
+- `.assert_holds()` — asserts that `before == after`, panicking with the signed delta if any value was leaked or created.
+- `assert_conserved_over(initial, steps)` — verifies that total supply remains conserved after every transition in a multi-step lifecycle.
+- `adversarial_amounts()` — generates boundary and rounding-edge `i128` inputs (`0`, `1`, `i128::MAX`) to stress-test arithmetic and overflow handling.
+
 ## Runnable example
 
 Put this in a test file of your contract crate (for example `tests/money.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:

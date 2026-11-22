@@ -1934,3 +1934,17 @@ describe("Auth module troubleshooting FAQ (#69)", () => {
     expect(screen.getByText(/Call the generated try_\* client method inside the closure/i)).toBeInTheDocument();
   });
 });
+
+// Issue #50 — concise API overview for the money module
+describe("Money module API overview (#50)", () => {
+  it("renders a concise API overview when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("Conservation::new(before, after)")).toBeInTheDocument();
+    expect(screen.getByText(".assert_holds()")).toBeInTheDocument();
+    expect(screen.getByText("assert_conserved_over(initial, steps)")).toBeInTheDocument();
+    expect(screen.getByText("adversarial_amounts()")).toBeInTheDocument();
+  });
+});
