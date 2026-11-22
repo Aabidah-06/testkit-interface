@@ -1276,6 +1276,43 @@ export default function App() {
             <p className="eyebrow">{selectedModuleData.category}</p>
             <h2 id="modules-heading">{selectedModuleData.name}</h2>
             <p>{selectedModuleData.description}</p>
+            {/* Issue #51: Version and compatibility notes for the ledger module */}
+            {selectedModuleData.name === "ledger" && (
+              <div className="module-version-info">
+                <h3>Version and compatibility</h3>
+                <dl className="version-details">
+                  <dt>Current version</dt>
+                  <dd>Soroban SDK 27.0.x and later</dd>
+
+                  <dt>Minimum Rust version</dt>
+                  <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                  <dt>Stellar network support</dt>
+                  <dd>Compatible with Testnet and Mainnet ledger sequence and timestamp semantics.</dd>
+
+                  <dt>Clock &amp; sequence control</dt>
+                  <dd>
+                    Uses in-memory mock ledger state via <code>env.ledger()</code> with deterministic timestamp and
+                    sequence warping.
+                  </dd>
+                </dl>
+                <h3>Known considerations</h3>
+                <ul>
+                  <li>
+                    <strong>Monotonic progression:</strong> Advance ledger sequences and timestamps forward; warping
+                    backward can invalidate TTL or time-lock assumptions.
+                  </li>
+                  <li>
+                    <strong>Offline deterministic state:</strong> All ledger time and sequence changes run in-memory
+                    with zero network RPC calls.
+                  </li>
+                  <li>
+                    <strong>TTL interaction:</strong> Advancing the ledger sequence also ages persistent and temporary
+                    storage entries—pair with <code>ttl</code> checks when testing expiration.
+                  </li>
+                </ul>
+              </div>
+            )}
             {/* Issue #82: Version and compatibility notes for the ttl module */}
             {selectedModuleData.name === "ttl" && (
               <div className="module-version-info">

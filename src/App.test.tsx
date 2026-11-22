@@ -1994,3 +1994,18 @@ describe("Money module quick-start walkthrough (#49)", () => {
     expect(liveRegion?.textContent).toMatch(/money module rust example copied/i);
   });
 });
+
+// Issue #51 — version and compatibility notes for the ledger module
+describe("Ledger module version and compatibility (#51)", () => {
+  it("documents version and compatibility notes when viewing the ledger module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for ledger module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/Monotonic progression:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Offline deterministic state:/i)).toBeInTheDocument();
+  });
+});
