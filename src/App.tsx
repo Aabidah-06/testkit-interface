@@ -316,6 +316,29 @@ const moneyQuickStartSteps = [
   },
 ] as const;
 
+const moneyFailureModes = [
+  {
+    title: "supply conservation mismatch",
+    detail:
+      "Conservation::new(before, after).assert_holds() panicked because after differed from before. Check for unburned fees, rounding dust, or missed account balances in the total.",
+  },
+  {
+    title: "i128 arithmetic overflow",
+    detail:
+      "Summing balances or multiplying large adversarial amounts exceeded i128::MAX. Use checked arithmetic (checked_add, checked_mul) in contract calculations.",
+  },
+  {
+    title: "rounding dust accumulation",
+    detail:
+      "Integer division or fee splits truncated remainders across repeated transfers, causing assert_conserved_over to fail on a later step.",
+  },
+  {
+    title: "negative amount input",
+    detail:
+      "Passing a negative i128 amount to token transfers or mints panics immediately; validate amount >= 0 at contract entry points.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -1385,6 +1408,14 @@ export default function App() {
                   ))}
                 </ol>
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
+                <h3>Common failure modes</h3>
+                <ul>
+                  {moneyFailureModes.map((mode) => (
+                    <li key={mode.title}>
+                      <strong>{mode.title}:</strong> {mode.detail}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {selectedModuleData.name === "tokens" && (

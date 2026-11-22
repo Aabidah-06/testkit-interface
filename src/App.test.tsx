@@ -2009,3 +2009,17 @@ describe("Ledger module version and compatibility (#51)", () => {
     expect(screen.getByText(/Offline deterministic state:/i)).toBeInTheDocument();
   });
 });
+
+// Issue #48 — common failure modes for the money module
+describe("Money module common failure modes (#48)", () => {
+  it("documents common failure modes when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/supply conservation mismatch/i)).toBeInTheDocument();
+    expect(screen.getByText(/i128 arithmetic overflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/rounding dust accumulation/i)).toBeInTheDocument();
+    expect(screen.getByText(/negative amount input/i)).toBeInTheDocument();
+  });
+});
