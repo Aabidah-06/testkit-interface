@@ -672,6 +672,26 @@ function highlightCommand(command: string): React.ReactNode {
   return parts;
 }
 
+const TOKENS_RUST_EXAMPLE = `use soroban_testkit::core::TestEnv;
+use soroban_testkit::tokens::MockToken;
+
+#[test]
+fn transfer_updates_balances() {
+    let env = TestEnv::new();
+    env.env().mock_all_auths();
+
+    let admin = env.address();
+    let alice = env.address();
+    let bob = env.address();
+
+    let token = MockToken::deploy(&env, &admin);
+    token.mint(&alice, &10_000_000);
+    token.transfer(&alice, &bob, &2_500_000);
+
+    assert_eq!(token.balance(&alice), 7_500_000);
+    assert_eq!(token.balance(&bob), 2_500_000);
+}`;
+
 export default function App() {
   const [command, setCommand] = useState<CommandName>("coverage");
   const [path, setPath] = useState(".");
@@ -745,6 +765,14 @@ export default function App() {
   // Issue #84: Coverage command reference
   const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
+  // Issue #63: Troubleshooting FAQ for the tokens module
+  const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
+  // Issue #60: Runnable Rust example for the tokens module
+  const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
+  // Issue #62: Troubleshooting FAQ for the events module
+  const [eventsFaqOpen, setEventsFaqOpen] = useState(false);
+  // Issue #61: Quick-start walkthrough for the events module
+  const [eventsQuickStartOpen, setEventsQuickStartOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
