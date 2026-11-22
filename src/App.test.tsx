@@ -1948,3 +1948,49 @@ describe("Money module API overview (#50)", () => {
     expect(screen.getByText("adversarial_amounts()")).toBeInTheDocument();
   });
 });
+
+// Issue #49 — quick-start walkthrough for the money module
+describe("Money module quick-start walkthrough (#49)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Add soroban-testkit as a dev-dependency/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv, token, and test addresses/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/money module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("Conservation::new(initial_total, after_total).assert_holds()");
+  });
+
+  it("copies the money quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy money module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn escrow_release_conserves_total_supply"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/money module rust example copied/i);
+  });
+});

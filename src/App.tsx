@@ -297,6 +297,25 @@ const moneyApiOverview = [
   },
 ] as const;
 
+const moneyQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv, token, and test addresses",
+    detail: "Call TestEnv::new(), env.token(), and env.address() to set up buyer, seller, and escrow participants.",
+  },
+  {
+    title: "Mint balances and record the initial supply",
+    detail: "Fund test accounts with token.mint(&buyer, amount) and sum initial_total before running transfers.",
+  },
+  {
+    title: "Assert supply conservation after transitions",
+    detail: "Compute after_total and call Conservation::new(initial_total, after_total).assert_holds() to catch leaked balances.",
+  },
+] as const;
+
 const moneyExampleCode = `use soroban_testkit::core::TestEnv;
 use soroban_testkit::money::Conservation;
 
@@ -1320,6 +1339,14 @@ export default function App() {
                     </Fragment>
                   ))}
                 </dl>
+                <h3>Quick-start walkthrough</h3>
+                <ol>
+                  {moneyQuickStartSteps.map((step) => (
+                    <li key={step.title}>
+                      <strong>{step.title}:</strong> {step.detail}
+                    </li>
+                  ))}
+                </ol>
                 {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
               </div>
             )}

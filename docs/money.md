@@ -9,6 +9,13 @@
 - `assert_conserved_over(initial, steps)` — verifies that total supply remains conserved after every transition in a multi-step lifecycle.
 - `adversarial_amounts()` — generates boundary and rounding-edge `i128` inputs (`0`, `1`, `i128::MAX`) to stress-test arithmetic and overflow handling.
 
+## Quick start
+
+1. Add the crate: `cargo add --dev soroban-testkit`.
+2. Create a `TestEnv`, spin up a token with `env.token()`, and generate buyer, seller, and escrow addresses via `env.address()`.
+3. Mint the initial balance and record `initial_total` before executing transfers or contract calls.
+4. Compute `after_total` and call `Conservation::new(initial_total, after_total).assert_holds()` (or `assert_conserved_over` for multi-step flows).
+
 ## Runnable example
 
 Put this in a test file of your contract crate (for example `tests/money.rs`), with `soroban-testkit` as a dev-dependency, then run `cargo test`:
