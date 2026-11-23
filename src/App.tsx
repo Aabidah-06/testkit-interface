@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   buildCommand,
   formatCommandLine,
@@ -123,6 +123,322 @@ const descriptions: Record<CommandName, string> = {
 
 const defaultCoverageOrder: OptionalArgKey[] = ["format", "open"];
 
+const eventsExampleCode = `use soroban_sdk::{symbol_short, Address};
+use soroban_testkit::core::TestEnv;
+use soroban_testkit::events::EventLog;
+
+#[test]
+fn deposit_emits_typed_transfer_event() {
+    let env = TestEnv::new();
+    let contract_id = env.env().register(Vault, ());
+    let client = VaultClient::new(env.env(), &contract_id);
+    let sender: Address = env.address();
+
+    let log = EventLog::capture(&env, || {
+        client.deposit(&sender, &250);
+    });
+
+    log.assert_count(1);
+    log.assert_topic(&contract_id, (symbol_short!("deposit"), sender.clone()));
+    log.assert_data::<i128>(&contract_id, 250);
+}`;
+
+const eventsFailureModes = [
+  {
+    title: "expected N events, found M",
+    detail:
+      "Setup calls (such as token minting or initialization) ran inside EventLog::capture, or a cross-contract call emitted an extra event. Move setup before capture or filter by contract_id.",
+  },
+  {
+    title: "topic mismatch at index",
+    detail:
+      "Soroban encodes Symbol topics differently from String values. Use symbol_short! or Symbol::new to match the exact topic type emitted by the contract.",
+  },
+  {
+    title: "failed to decode event data as T",
+    detail:
+      "The Rust type passed to assert_data::<T> does not match the XDR type emitted by env.events().publish(...) (for example u128 vs i128, or a tuple vs a struct).",
+  },
+  {
+    title: "no events captured for contract",
+    detail:
+      "The contract invocation panicked before publishing, or EventLog::capture was called on a different TestEnv instance than the contract client.",
+  },
+] as const;
+
+const eventsApiOverview = [
+  {
+    symbol: "EventLog::capture(&env, f)",
+    summary: "Executes f against TestEnv and captures all contract events emitted during the invocation.",
+  },
+  {
+    symbol: "log.assert_count(n)",
+    summary: "Asserts that exactly n events were captured, printing a diagnostic summary on mismatch.",
+  },
+  {
+    symbol: "log.assert_topic(&id, topics)",
+    summary: "Verifies that a captured event from id matches the expected Soroban topic tuple.",
+  },
+  {
+    symbol: "log.assert_data::<T>(&id, val)",
+    summary: "Decodes the event data payload as T and asserts equality against val.",
+  },
+  {
+    symbol: "log.for_contract(&id)",
+    summary: "Filters captured events to those emitted by a single contract address.",
+  },
+] as const;
+
+const authApiOverview = [
+  {
+    symbol: "AuthMatrix::new(&env)",
+    summary: "Creates a privilege matrix bound to TestEnv to verify allowed and disallowed callers across entry points.",
+  },
+  {
+    symbol: ".entry_point(name, allowed, invoke)",
+    summary: "Registers an entry point with its authorized caller slice and invocation closure returning Result.",
+  },
+  {
+    symbol: ".assert_enforced()",
+    summary: "Cross-checks every entry point against allowed callers and all other known addresses, failing with a matrix diff on mismatch.",
+  },
+  {
+    symbol: "env.assert_requires_auth(|| { ... })",
+    summary: "Asserts that a single contract invocation fails when called without authorization.",
+  },
+] as const;
+
+const authQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and test identities",
+    detail: "Call TestEnv::new() and env.address() to generate owner and unprivileged caller addresses.",
+  },
+  {
+    title: "Register entry points in AuthMatrix",
+    detail: "Pass each entry point name, its allowed caller slice, and a closure returning Result to .entry_point(...).",
+  },
+  {
+    title: "Run cross-checks with assert_enforced",
+    detail: "Call .assert_enforced() to verify allowed callers succeed and all other known callers are rejected.",
+  },
+] as const;
+
+const authExampleCode = `use soroban_testkit::auth::AuthMatrix;
+use soroban_testkit::core::TestEnv;
+
+#[test]
+fn only_owner_can_withdraw() {
+    let env = TestEnv::new();
+    let owner = env.address();
+    let other = env.address();
+
+    AuthMatrix::new(&env)
+        .entry_point("deposit", &[owner.clone(), other.clone()], |_caller| Ok(()))
+        .entry_point("withdraw", &[owner.clone()], |caller| {
+            if *caller == owner {
+                Ok(())
+            } else {
+                Err(soroban_sdk::Error::from_contract_error(1))
+            }
+        })
+        .assert_enforced();
+}`;
+
+const authTroubleshootingFaq = [
+  {
+    id: "unauthorized-succeeds",
+    question: "Why does an unauthorized caller succeed in AuthMatrix?",
+    cause: "Global auth mocking (mock_all_auths) is enabled, or the entry point never calls require_auth().",
+    solution:
+      "Remove mock_all_auths() from auth tests and mock per-call auths for the tested caller with try_* client methods.",
+  },
+  {
+    id: "attacker-never-tested",
+    question: "Why did AuthMatrix pass even though an unprivileged address was not rejected?",
+    cause: "AuthMatrix only tests addresses that appear in at least one entry point's allowed slice.",
+    solution:
+      "Register the unprivileged address as allowed on an open entry point (such as deposit or a read-only probe) so it becomes a known caller.",
+  },
+  {
+    id: "matrix-panics-instead-of-err",
+    question: "Why does my test panic instead of returning Err for disallowed callers?",
+    cause: "The closure invokes the standard contract client method, which panics on HostError/AuthError.",
+    solution:
+      "Call the generated try_* client method inside the closure and map Ok/Err so AuthMatrix can inspect rejections.",
+  },
+  {
+    id: "assert-requires-auth-fails",
+    question: "Why does env.assert_requires_auth fail with 'succeeded without authorization'?",
+    cause: "The contract entry point did not invoke address.require_auth() or require_auth_for_args() before returning.",
+    solution: "Add require_auth() on the authorizing address at the start of the privileged contract method.",
+  },
+] as const;
+
+const coreTroubleshootingFaq = [
+  {
+    id: "warp-to-earlier",
+    question: "Why does try_warp_to return an error?",
+    cause: "The target timestamp is earlier than env.now(); the mock ledger clock cannot move backwards.",
+    solution: "Compute targets from env.now() or handle the Err returned by try_warp_to.",
+  },
+  {
+    id: "advance-overflow",
+    question: "Why did an advance call overflow ledger arithmetic?",
+    cause: "The requested sequence or timestamp exceeds the ledger counter type after applying the duration.",
+    solution: "Use smaller whole-second durations or the try_advance* variants and inspect the error.",
+  },
+  {
+    id: "handles-after-reset",
+    question: "Why do addresses and clients stop working after reset()?",
+    cause: "reset() discards all state, so handles created before the reset still point at the old environment.",
+    solution: "Recreate addresses, clients, and Env handles after calling reset().",
+  },
+] as const;
+
+const moneyApiOverview = [
+  {
+    symbol: "Conservation::new(before, after)",
+    summary: "Captures the expected and observed total supply across participating accounts for a state transition.",
+  },
+  {
+    symbol: ".assert_holds()",
+    summary: "Asserts that before == after, panicking with the signed delta if any value was leaked or created.",
+  },
+  {
+    symbol: "assert_conserved_over(initial, steps)",
+    summary: "Verifies that total supply remains conserved after every transition in a multi-step lifecycle.",
+  },
+  {
+    symbol: "adversarial_amounts()",
+    summary: "Generates boundary and rounding-edge i128 inputs (0, 1, i128::MAX) to stress-test arithmetic and overflow handling.",
+  },
+] as const;
+
+const moneyQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv, token, and test addresses",
+    detail: "Call TestEnv::new(), env.token(), and env.address() to set up buyer, seller, and escrow participants.",
+  },
+  {
+    title: "Mint balances and record the initial supply",
+    detail: "Fund test accounts with token.mint(&buyer, amount) and sum initial_total before running transfers.",
+  },
+  {
+    title: "Assert supply conservation after transitions",
+    detail: "Compute after_total and call Conservation::new(initial_total, after_total).assert_holds() to catch leaked balances.",
+  },
+] as const;
+
+const moneyFailureModes = [
+  {
+    title: "supply conservation mismatch",
+    detail:
+      "Conservation::new(before, after).assert_holds() panicked because after differed from before. Check for unburned fees, rounding dust, or missed account balances in the total.",
+  },
+  {
+    title: "i128 arithmetic overflow",
+    detail:
+      "Summing balances or multiplying large adversarial amounts exceeded i128::MAX. Use checked arithmetic (checked_add, checked_mul) in contract calculations.",
+  },
+  {
+    title: "rounding dust accumulation",
+    detail:
+      "Integer division or fee splits truncated remainders across repeated transfers, causing assert_conserved_over to fail on a later step.",
+  },
+  {
+    title: "negative amount input",
+    detail:
+      "Passing a negative i128 amount to token transfers or mints panics immediately; validate amount >= 0 at contract entry points.",
+  },
+] as const;
+
+const moneyExampleCode = `use soroban_testkit::core::TestEnv;
+use soroban_testkit::money::Conservation;
+
+#[test]
+fn escrow_release_conserves_total_supply() {
+    let env = TestEnv::new();
+    let token = env.token();
+    let buyer = env.address();
+    let seller = env.address();
+    let escrow = env.address();
+
+    token.mint(&buyer, 1_000);
+    let initial_total = token.balance(&buyer) + token.balance(&seller) + token.balance(&escrow);
+
+    token.transfer(&buyer, &escrow, 1_000);
+    token.transfer(&escrow, &seller, 600);
+
+    let after_total = token.balance(&buyer) + token.balance(&seller) + token.balance(&escrow);
+    Conservation::new(initial_total, after_total).assert_holds();
+}`;
+
+const tokensQuickStartSteps = [
+  {
+    title: "Add soroban-testkit as a dev-dependency",
+    detail: "Run cargo add --dev soroban-testkit in your contract crate.",
+  },
+  {
+    title: "Create a TestEnv and SAC test double",
+    detail: "Call TestEnv::new() and env.token() to spin up an isolated Stellar Asset Contract test double.",
+  },
+  {
+    title: "Mint initial test balances",
+    detail: "Generate test addresses with env.address() and fund them using token.mint(&account, amount).",
+  },
+  {
+    title: "Invoke transfers and assert balances",
+    detail: "Call token.transfer(...) or pass the token address to your contract, then verify balances with token.balance(&account).",
+  },
+] as const;
+
+const tokensExampleCode = `use soroban_testkit::core::TestEnv;
+
+#[test]
+fn token_transfer_updates_balances() {
+    let env = TestEnv::new();
+    let token = env.token();
+    let alice = env.address();
+    let bob = env.address();
+
+    token.mint(&alice, 1_000);
+    token.transfer(&alice, &bob, 350);
+
+    assert_eq!(token.balance(&alice), 650);
+    assert_eq!(token.balance(&bob), 350);
+}`;
+
+const tokensFailureModes = [
+  {
+    title: "insufficient balance",
+    detail:
+      "token.transfer or token.transfer_from panicked because the sender balance was lower than the requested amount. Mint funds with token.mint(&from, amount) before transferring.",
+  },
+  {
+    title: "negative amount or overflow",
+    detail:
+      "Soroban SAC amounts are signed i128 values. Passing a negative amount or overflowing i128::MAX panics immediately.",
+  },
+  {
+    title: "allowance exceeded or missing approval",
+    detail:
+      "token.transfer_from requires a prior token.approve(&owner, &spender, amount, expiration_ledger) that covers the transfer amount and has not expired.",
+  },
+  {
+    title: "authorization error on transfer",
+    detail:
+      "Unlike token.mint (which uses test admin privileges), token.transfer and token.approve enforce SAC auth. Mock auth for the sender or owner when testing without mock_all_auths.",
+  },
+] as const;
+
 const optionalArgumentRows = [
   { key: "format" as const, label: "Format", summary: "--format html" },
   { key: "open" as const, label: "Open report", summary: "--open" },
@@ -240,6 +556,14 @@ const coveragePrerequisites = [
   { id: "llvm-cov", label: "cargo-llvm-cov installed and available" },
   { id: "testkit-cli", label: "Testkit CLI installed and on your PATH" },
   { id: "tests-pass", label: "Local test suite runs successfully" },
+];
+
+// Issue #78: Preflight checklist for coverage workflow
+const coveragePreflight = [
+  { id: "workspace-root", label: "Target path points to a Cargo contract workspace" },
+  { id: "llvm-tools", label: "llvm-tools-preview component is installed for cargo-llvm-cov" },
+  { id: "clean-tests", label: "Unit and integration tests compile and pass with cargo test" },
+  { id: "output-format", label: "Report format (--format html, lcov, or text) matches your workflow" },
 ];
 
 // Issue #79: Advanced options for coverage workflow
@@ -369,6 +693,26 @@ function highlightCommand(command: string): React.ReactNode {
   return parts;
 }
 
+const TOKENS_RUST_EXAMPLE = `use soroban_testkit::core::TestEnv;
+use soroban_testkit::tokens::MockToken;
+
+#[test]
+fn transfer_updates_balances() {
+    let env = TestEnv::new();
+    env.env().mock_all_auths();
+
+    let admin = env.address();
+    let alice = env.address();
+    let bob = env.address();
+
+    let token = MockToken::deploy(&env, &admin);
+    token.mint(&alice, &10_000_000);
+    token.transfer(&alice, &bob, &2_500_000);
+
+    assert_eq!(token.balance(&alice), 7_500_000);
+    assert_eq!(token.balance(&bob), 2_500_000);
+}`;
+
 export default function App() {
   const [command, setCommand] = useState<CommandName>("coverage");
   const [path, setPath] = useState(".");
@@ -380,6 +724,7 @@ export default function App() {
   const [shell, setShell] = useState<"bash" | "zsh" | "fish" | "sh">("bash");
   const [copied, setCopied] = useState(false);
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
+  const [copiedModuleExample, setCopiedModuleExample] = useState<string | null>(null);
   const [copiedWithComments, setCopiedWithComments] = useState(false);
   const [copiedAsScript, setCopiedAsScript] = useState(false);
   // Issue #143: Command history for restore functionality
@@ -428,6 +773,12 @@ export default function App() {
   // Issue #81: Prerequisites checklist for coverage workflow
   const [coveragePrerequisitesOpen, setCoveragePrerequisitesOpen] = useState(false);
   const [checkedCoveragePrerequisites, setCheckedCoveragePrerequisites] = useState<Record<string, boolean>>({});
+  // Issue #78: Preflight checklist for coverage workflow
+  const [coveragePreflightOpen, setCoveragePreflightOpen] = useState(false);
+  const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
+  // Issue #69: Troubleshooting FAQ for the auth module
+  const [openAuthFaqIds, setOpenAuthFaqIds] = useState<Record<string, boolean>>({});
+  const [openCoreFaqIds, setOpenCoreFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
   const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
@@ -436,6 +787,14 @@ export default function App() {
   // Issue #84: Coverage command reference
   const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
+  // Issue #63: Troubleshooting FAQ for the tokens module
+  const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
+  // Issue #60: Runnable Rust example for the tokens module
+  const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
+  // Issue #62: Troubleshooting FAQ for the events module
+  const [eventsFaqOpen, setEventsFaqOpen] = useState(false);
+  // Issue #61: Quick-start walkthrough for the events module
+  const [eventsQuickStartOpen, setEventsQuickStartOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // #117 — mobile nav toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -509,6 +868,18 @@ export default function App() {
   );
 
   const generated = useMemo(() => buildCommand(options), [options]);
+  const generatedRef = useRef(generated);
+
+  useEffect(() => {
+    generatedRef.current = generated;
+  }, [generated]);
+
+  useEffect(() => {
+    setCopied(false);
+    setCopiedWithComments(false);
+    setCopiedAsScript(false);
+    setAnnouncement("");
+  }, [command]);
 
   const toggleAdvancedEditor = () => {
     if (multilineEditor) {
@@ -672,52 +1043,119 @@ export default function App() {
     }
   };
 
+  const showCopyFailure = () => {
+    setValidationError("Could not copy to clipboard. Check browser clipboard permissions.");
+    window.setTimeout(() => setValidationError(""), 3000);
+  };
+
   const copy = async () => {
-    await copyToClipboard(generated);
-    saveToHistory(); // Save to history when copying
-    setCopied(true);
-    setAnnouncement("Command copied to clipboard");
-    window.setTimeout(() => {
-      setCopied(false);
-      setAnnouncement("");
-    }, 3000);
+    const requested = generated;
+    try {
+      await copyToClipboard(requested);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopied(true);
+      setAnnouncement("Command copied to clipboard");
+      window.setTimeout(() => {
+        setCopied(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   // Issue #144: Copy command with explanatory comments
   const copyWithComments = async () => {
+    const requested = generated;
     const commented = formatCommandWithComments(options);
-    await copyToClipboard(commented);
-    saveToHistory(); // Save to history when copying
-    setCopiedWithComments(true);
-    setAnnouncement("Command with comments copied to clipboard");
-    window.setTimeout(() => {
-      setCopiedWithComments(false);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(commented);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopiedWithComments(true);
+      setAnnouncement("Command with comments copied to clipboard");
+      window.setTimeout(() => {
+        setCopiedWithComments(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   // Issue #145: Copy command as reusable shell script
   const copyAsScript = async () => {
+    const requested = generated;
     const script = formatCommandAsScript(options);
-    await copyToClipboard(script);
-    saveToHistory(); // Save to history when copying
-    setCopiedAsScript(true);
-    setAnnouncement("Shell script copied to clipboard");
-    window.setTimeout(() => {
-      setCopiedAsScript(false);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(script);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopiedAsScript(true);
+      setAnnouncement("Shell script copied to clipboard");
+      window.setTimeout(() => {
+        setCopiedAsScript(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   const copyStep = async (index: number, stepCommand: string) => {
-    await copyToClipboard(stepCommand);
-    setCopiedStep(index);
-    setAnnouncement(`Step ${index + 1} command copied to clipboard`);
-    window.setTimeout(() => {
-      setCopiedStep(null);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(stepCommand);
+      setCopiedStep(index);
+      setAnnouncement(`Step ${index + 1} command copied to clipboard`);
+      window.setTimeout(() => {
+        setCopiedStep(null);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      showCopyFailure();
+    }
   };
+
+  const copyModuleExample = async (moduleName: string, exampleCode: string) => {
+    try {
+      await copyToClipboard(exampleCode);
+      setCopiedModuleExample(moduleName);
+      setAnnouncement(`${moduleName} module Rust example copied to clipboard`);
+      window.setTimeout(() => {
+        setCopiedModuleExample(null);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      showCopyFailure();
+    }
+  };
+
+  const renderModuleExample = (moduleName: string, filePath: string, code: string) => (
+    <>
+      <h3>Runnable Rust example</h3>
+      <p>
+        Put this in a test file of your contract crate (for example <code>{filePath}</code>), with{" "}
+        <code>soroban-testkit</code> as a dev-dependency, then run <code>cargo test</code>:
+      </p>
+      <div className="module-code-block">
+        <div className="module-code-header">
+          <span>{filePath}</span>
+          <button
+            type="button"
+            className="button secondary"
+            aria-label={`Copy ${moduleName} module Rust example`}
+            onClick={() => copyModuleExample(moduleName, code)}
+          >
+            {copiedModuleExample === moduleName ? "Copied" : "Copy example"}
+          </button>
+        </div>
+        <pre tabIndex={0} aria-label={`${moduleName} module runnable Rust example`}>
+          <code>{code}</code>
+        </pre>
+      </div>
+    </>
+  );
 
   // #146 — download generated command as shell script
   const downloadCommand = () => {
@@ -954,7 +1392,116 @@ export default function App() {
             <p className="eyebrow">{selectedModuleData.category}</p>
             <h2 id="modules-heading">{selectedModuleData.name}</h2>
             <p>{selectedModuleData.description}</p>
-            {/* Issue #77, #76, #75: API overview, runnable example, and common failure modes for ttl module */}
+            {selectedModuleData.name === "core" && (
+              <>
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>soroban-testkit core API with Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with the wasm32v1-none target</dd>
+
+                    <dt>Environment support</dt>
+                    <dd>
+                      <code>TestEnv</code> wraps <code>soroban_sdk::Env</code>; use <code>env.env()</code> for SDK
+                      calls the core module does not expose directly.
+                    </dd>
+
+                    <dt>Network support</dt>
+                    <dd>
+                      Tests run locally without RPC. Testnet and Mainnet behavior is represented by in-memory
+                      ledger state.
+                    </dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li>
+                      <strong>Deterministic seeds:</strong> Use <code>TestEnv::with_seed(n)</code> when generated
+                      addresses must repeat across runs.
+                    </li>
+                    <li>
+                      <strong>Error classification:</strong> Match on <code>TestkitError::code()</code> rather than
+                      panic message text.
+                    </li>
+                    <li>
+                      <strong>State resets:</strong> Recreate addresses, clients, and <code>Env</code> handles after
+                      <code>reset()</code>.
+                    </li>
+                  </ul>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="core-faq-list">
+                    {coreTroubleshootingFaq.map((item) => {
+                      const isOpen = openCoreFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`core-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenCoreFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`core-faq-panel-${item.id}`} className="guide-panel">
+                              <p><strong>Cause:</strong> {item.cause}</p>
+                              <p><strong>Solution:</strong> {item.solution}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+            {/* Issue #51: Version and compatibility notes for the ledger module */}
+            {selectedModuleData.name === "ledger" && (
+              <div className="module-version-info">
+                <h3>Version and compatibility</h3>
+                <dl className="version-details">
+                  <dt>Current version</dt>
+                  <dd>Soroban SDK 27.0.x and later</dd>
+
+                  <dt>Minimum Rust version</dt>
+                  <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                  <dt>Stellar network support</dt>
+                  <dd>Compatible with Testnet and Mainnet ledger sequence and timestamp semantics.</dd>
+
+                  <dt>Clock &amp; sequence control</dt>
+                  <dd>
+                    Uses in-memory mock ledger state via <code>env.ledger()</code> with deterministic timestamp and
+                    sequence warping.
+                  </dd>
+                </dl>
+                <h3>Known considerations</h3>
+                <ul>
+                  <li>
+                    <strong>Monotonic progression:</strong> Advance ledger sequences and timestamps forward; warping
+                    backward can invalidate TTL or time-lock assumptions.
+                  </li>
+                  <li>
+                    <strong>Offline deterministic state:</strong> All ledger time and sequence changes run in-memory
+                    with zero network RPC calls.
+                  </li>
+                  <li>
+                    <strong>TTL interaction:</strong> Advancing the ledger sequence also ages persistent and temporary
+                    storage entries—pair with <code>ttl</code> checks when testing expiration.
+                  </li>
+                </ul>
+              </div>
+            )}
+            {/* Issue #82: Version and compatibility notes for the ttl module */}
             {selectedModuleData.name === "ttl" && (
               <div className="module-version-info">
                 <h3>API overview</h3>
@@ -1009,6 +1556,194 @@ export default function App() {
                   <li><strong>Persistent vs. temporary:</strong> Different storage types (persistent vs. temporary) have different TTL semantics. Test both using the testkit module.</li>
                 </ul>
               </div>
+            )}
+            {selectedModuleData.name === "events" && (
+              <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {eventsApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+                {renderModuleExample("events", "tests/events.rs", eventsExampleCode)}
+                <h3>Common failure modes</h3>
+                <ul>
+                  {eventsFailureModes.map((mode) => (
+                    <li key={mode.title}>
+                      <strong>{mode.title}:</strong> {mode.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "money" && (
+              <div className="module-doc-section">
+                <h3>API overview</h3>
+                <dl className="version-details">
+                  {moneyApiOverview.map((item) => (
+                    <Fragment key={item.symbol}>
+                      <dt>
+                        <code>{item.symbol}</code>
+                      </dt>
+                      <dd>{item.summary}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+                <h3>Quick-start walkthrough</h3>
+                <ol>
+                  {moneyQuickStartSteps.map((step) => (
+                    <li key={step.title}>
+                      <strong>{step.title}:</strong> {step.detail}
+                    </li>
+                  ))}
+                </ol>
+                {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
+                <h3>Common failure modes</h3>
+                <ul>
+                  {moneyFailureModes.map((mode) => (
+                    <li key={mode.title}>
+                      <strong>{mode.title}:</strong> {mode.detail}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {selectedModuleData.name === "tokens" && (
+              <>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {tokensQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("tokens", "tests/tokens.rs", tokensExampleCode)}
+                  <h3>Common failure modes</h3>
+                  <ul>
+                    {tokensFailureModes.map((mode) => (
+                      <li key={mode.title}>
+                        <strong>{mode.title}:</strong> {mode.detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Issue #64: Version and compatibility notes for the tokens module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Token standard support</dt>
+                    <dd>Implements the Stellar Asset Contract (SEP-41) token interface (<code>transfer</code>, <code>transfer_from</code>, <code>approve</code>, <code>balance</code>, <code>allowance</code>).</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet SAC behavior using deterministic <code>i128</code> amounts.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Signed <code>i128</code> amounts:</strong> Token amounts and balances use <code>i128</code>; negative values or arithmetic overflows panic just like the Soroban SAC.</li>
+                    <li><strong>Authorization rules:</strong> <code>token.mint</code> uses test admin privileges, while <code>transfer</code> and <code>transfer_from</code> enforce standard SAC authorization.</li>
+                    <li><strong>Test isolation:</strong> Each <code>env.token()</code> test double is scoped to its own <code>TestEnv</code> and never shares balances across tests.</li>
+                  </ul>
+                </div>
+              </>
+            )}
+            {selectedModuleData.name === "auth" && (
+              <>
+                <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {authApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {authQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("auth", "tests/auth.rs", authExampleCode)}
+                </div>
+                {/* Issue #68: Version and compatibility notes for the auth module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet authorization semantics (<code>require_auth</code> and <code>require_auth_for_args</code>).</dd>
+
+                    <dt>Mocking compatibility</dt>
+                    <dd>Designed for per-call <code>mock_auths</code> and generated <code>try_*</code> client methods that return <code>Result</code>.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Avoid <code>mock_all_auths</code> with <code>AuthMatrix</code>:</strong> Global auth mocking bypasses <code>require_auth</code> checks and masks missing authorization gates.</li>
+                    <li><strong>Include an unprivileged caller:</strong> <code>AuthMatrix</code> cross-checks addresses listed as allowed on other entry points; include at least one non-admin address on an open entry point.</li>
+                    <li><strong>Use <code>try_*</code> client methods:</strong> Non-<code>try</code> client methods panic on authorization failure instead of returning <code>Err</code>.</li>
+                  </ul>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="auth-faq-list">
+                    {authTroubleshootingFaq.map((item) => {
+                      const isOpen = openAuthFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`auth-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenAuthFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`auth-faq-panel-${item.id}`} className="guide-panel">
+                              <p>
+                                <strong>Cause:</strong> {item.cause}
+                              </p>
+                              <p>
+                                <strong>Solution:</strong> {item.solution}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
             <button type="button" className="button secondary" onClick={() => setSelectedModule(null)}>
               Back to all modules
@@ -1795,9 +2530,13 @@ export default function App() {
                         <button
                           type="button"
                           onClick={async () => {
-                            await copyToClipboard(cmd);
-                            setAnnouncement(`History command ${commandHistory.length - index} copied`);
-                            window.setTimeout(() => setAnnouncement(""), 1600);
+                            try {
+                              await copyToClipboard(cmd);
+                              setAnnouncement(`History command ${commandHistory.length - index} copied`);
+                              window.setTimeout(() => setAnnouncement(""), 1600);
+                            } catch {
+                              showCopyFailure();
+                            }
                           }}
                           aria-label={`Copy history command ${commandHistory.length - index}`}
                         >
@@ -2550,6 +3289,49 @@ soroban-testkit = "0.2.0"`}</code>
                 <li>Install cargo-llvm-cov for coverage report generation: <code>cargo install cargo-llvm-cov</code></li>
                 <li>Verify testkit-cli is installed and accessible: <code>soroban-testkit --version</code></li>
                 <li>Run your test suite locally to confirm all tests pass: <code>cargo test</code></li>
+              </ol>
+            </div>
+          )}
+        </article>
+
+        {/* Issue #78: Preflight checklist for coverage workflow */}
+        <article className="guide-card">
+          <div className="guide-header">
+            <h3>Coverage workflow: Preflight checklist</h3>
+            <button
+              type="button"
+              className="guide-toggle"
+              aria-expanded={coveragePreflightOpen}
+              aria-controls="coverage-preflight-panel"
+              onClick={() => setCoveragePreflightOpen((open) => !open)}
+            >
+              {coveragePreflightOpen ? "Hide checklist" : "Show checklist"}
+            </button>
+          </div>
+          {coveragePreflightOpen && (
+            <div id="coverage-preflight-panel" className="guide-panel">
+              <fieldset className="coverage-preflight">
+                <legend>Before hitting run, verify these:</legend>
+                {coveragePreflight.map((item) => (
+                  <label key={item.id} className="check">
+                    <span className="check-content">
+                      <input
+                        type="checkbox"
+                        checked={checkedCoveragePreflight[item.id] ?? false}
+                        onChange={(event) =>
+                          setCheckedCoveragePreflight((prev) => ({ ...prev, [item.id]: event.target.checked }))
+                        }
+                      />
+                      <span>{item.label}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <ol>
+                <li>Confirm the target path contains a valid <code>Cargo.toml</code> for your Soroban contract</li>
+                <li>Ensure <code>llvm-tools-preview</code> is installed: <code>rustup component add llvm-tools-preview</code></li>
+                <li>Verify your contract tests pass under <code>cargo test</code> so coverage data is complete</li>
+                <li>Choose <code>html</code> with <code>--open</code> for local inspection, <code>lcov</code> for CI, or <code>text</code> for terminal summaries</li>
               </ol>
             </div>
           )}
