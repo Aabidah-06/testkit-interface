@@ -12,6 +12,37 @@
 
 Run `cargo test` in your contract crate to confirm the setup. This walkthrough was written from the crate source; it has not been compiled or run against a checkout.
 
+## Version and compatibility
+
+| Topic | Compatibility |
+|---|---|
+| Core API | `soroban-testkit` core API with Soroban SDK 27.0.x and later |
+| Minimum Rust version | Rust 1.84 or later with the `wasm32v1-none` target |
+| Environment support | `TestEnv` wraps `soroban_sdk::Env`; use `env.env()` for SDK calls the core module does not expose directly |
+| Network support | Tests run locally without RPC; Testnet and Mainnet behavior is represented by in-memory ledger state |
+| Reproducibility | Use `TestEnv::with_seed(n)` when generated addresses must repeat across runs |
+| Error handling | Match on `TestkitError::code()` instead of panic message text |
+
+## Troubleshooting FAQ
+
+### Why does `try_warp_to` return an error?
+
+**Cause:** The target timestamp is earlier than `env.now()`; the mock ledger clock cannot move backwards.
+
+**Solution:** Compute targets from `env.now()`, or handle the `Err` returned by `try_warp_to` and leave the clock unchanged.
+
+### Why did an `advance` call overflow ledger arithmetic?
+
+**Cause:** The requested sequence or timestamp exceeds the ledger counter type after applying the duration.
+
+**Solution:** Use smaller whole-second durations, or call the `try_advance*` variants and inspect the error.
+
+### Why do addresses and clients stop working after `reset()`?
+
+**Cause:** `reset()` discards all state, so handles created before the reset still point at the old environment.
+
+**Solution:** Recreate addresses, clients, and `Env` handles after calling `reset()`.
+
 ## Common failure modes
 
 | Symptom | Cause (from the source) | What to do |

@@ -2023,3 +2023,136 @@ describe("Money module common failure modes (#48)", () => {
     expect(screen.getByText(/negative amount input/i)).toBeInTheDocument();
   });
 });
+
+// Issue #36 — copied feedback must wait for a successful clipboard write
+describe("Copy feedback only after clipboard success (#36)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("does not show copied feedback while the clipboard write is pending", async () => {
+    let finishWrite = () => {};
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => resolve();
+        }),
+    );
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+
+    expect(screen.getByRole("button", { name: /^Copy$/ })).toBeInTheDocument();
+
+    await act(async () => {
+      finishWrite();
+    });
+
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("announces a clipboard failure instead of showing copied feedback", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("clipboard denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    });
+
+    expect(screen.getByRole("button", { name: /^Copy$/ })).toBeInTheDocument();
+    await waitFor(() => {
+      const alertRegion = document.querySelector('[aria-live="assertive"]');
+      expect(alertRegion?.textContent).toMatch(/could not copy/i);
+    });
+  });
+});
+
+// Issue #37 — generated output and copy feedback stay aligned after rapid mode changes
+describe("Rapid workflow mode changes (#37)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the final mode's output visible when an earlier copy finishes after a switch", async () => {
+    let finishWrite = () => {};
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => resolve();
+        }),
+    );
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "limits" }));
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("soroban-testkit coverage"));
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit limits");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      finishWrite();
+    });
+
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit limits");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+  });
+});
+
+// Issue #38 — version and compatibility notes for the core module
+describe("Core module version and compatibility (#38)", () => {
+  it("documents version and compatibility notes when viewing the core module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for core module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(
+      screen.getByText("soroban-testkit core API with Soroban SDK 27.0.x and later"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with the wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+  });
+});
+
+// Issue #39 — troubleshooting FAQ for the core module
+describe("Core module troubleshooting FAQ (#39)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ when viewing the core module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for core module/i }));
+
+    expect(screen.getByRole("heading", { name: /troubleshooting faq/i })).toBeInTheDocument();
+
+    const firstQuestionBtn = screen.getByRole("button", {
+      name: /why does try_warp_to return an error\?/i,
+    });
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    expect(firstQuestionBtn).toHaveAttribute("aria-controls", "core-faq-panel-warp-to-earlier");
+
+    fireEvent.click(firstQuestionBtn);
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/earlier than env.now\(\)/i)).toBeInTheDocument();
+
+    const secondQuestionBtn = screen.getByRole("button", {
+      name: /why did an advance call overflow ledger arithmetic\?/i,
+    });
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(secondQuestionBtn);
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/smaller whole-second durations/i)).toBeInTheDocument();
+  });
+});

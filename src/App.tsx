@@ -278,6 +278,27 @@ const authTroubleshootingFaq = [
   },
 ] as const;
 
+const coreTroubleshootingFaq = [
+  {
+    id: "warp-to-earlier",
+    question: "Why does try_warp_to return an error?",
+    cause: "The target timestamp is earlier than env.now(); the mock ledger clock cannot move backwards.",
+    solution: "Compute targets from env.now() or handle the Err returned by try_warp_to.",
+  },
+  {
+    id: "advance-overflow",
+    question: "Why did an advance call overflow ledger arithmetic?",
+    cause: "The requested sequence or timestamp exceeds the ledger counter type after applying the duration.",
+    solution: "Use smaller whole-second durations or the try_advance* variants and inspect the error.",
+  },
+  {
+    id: "handles-after-reset",
+    question: "Why do addresses and clients stop working after reset()?",
+    cause: "reset() discards all state, so handles created before the reset still point at the old environment.",
+    solution: "Recreate addresses, clients, and Env handles after calling reset().",
+  },
+] as const;
+
 const moneyApiOverview = [
   {
     symbol: "Conservation::new(before, after)",
@@ -757,6 +778,7 @@ export default function App() {
   const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
   // Issue #69: Troubleshooting FAQ for the auth module
   const [openAuthFaqIds, setOpenAuthFaqIds] = useState<Record<string, boolean>>({});
+  const [openCoreFaqIds, setOpenCoreFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
   const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
@@ -846,6 +868,18 @@ export default function App() {
   );
 
   const generated = useMemo(() => buildCommand(options), [options]);
+  const generatedRef = useRef(generated);
+
+  useEffect(() => {
+    generatedRef.current = generated;
+  }, [generated]);
+
+  useEffect(() => {
+    setCopied(false);
+    setCopiedWithComments(false);
+    setCopiedAsScript(false);
+    setAnnouncement("");
+  }, [command]);
 
   const toggleAdvancedEditor = () => {
     if (multilineEditor) {
@@ -1009,61 +1043,92 @@ export default function App() {
     }
   };
 
+  const showCopyFailure = () => {
+    setValidationError("Could not copy to clipboard. Check browser clipboard permissions.");
+    window.setTimeout(() => setValidationError(""), 3000);
+  };
+
   const copy = async () => {
-    await copyToClipboard(generated);
-    saveToHistory(); // Save to history when copying
-    setCopied(true);
-    setAnnouncement("Command copied to clipboard");
-    window.setTimeout(() => {
-      setCopied(false);
-      setAnnouncement("");
-    }, 3000);
+    const requested = generated;
+    try {
+      await copyToClipboard(requested);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopied(true);
+      setAnnouncement("Command copied to clipboard");
+      window.setTimeout(() => {
+        setCopied(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   // Issue #144: Copy command with explanatory comments
   const copyWithComments = async () => {
+    const requested = generated;
     const commented = formatCommandWithComments(options);
-    await copyToClipboard(commented);
-    saveToHistory(); // Save to history when copying
-    setCopiedWithComments(true);
-    setAnnouncement("Command with comments copied to clipboard");
-    window.setTimeout(() => {
-      setCopiedWithComments(false);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(commented);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopiedWithComments(true);
+      setAnnouncement("Command with comments copied to clipboard");
+      window.setTimeout(() => {
+        setCopiedWithComments(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   // Issue #145: Copy command as reusable shell script
   const copyAsScript = async () => {
+    const requested = generated;
     const script = formatCommandAsScript(options);
-    await copyToClipboard(script);
-    saveToHistory(); // Save to history when copying
-    setCopiedAsScript(true);
-    setAnnouncement("Shell script copied to clipboard");
-    window.setTimeout(() => {
-      setCopiedAsScript(false);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(script);
+      if (generatedRef.current !== requested) return;
+      saveToHistory(); // Save to history when copying
+      setCopiedAsScript(true);
+      setAnnouncement("Shell script copied to clipboard");
+      window.setTimeout(() => {
+        setCopiedAsScript(false);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      if (generatedRef.current === requested) showCopyFailure();
+    }
   };
 
   const copyStep = async (index: number, stepCommand: string) => {
-    await copyToClipboard(stepCommand);
-    setCopiedStep(index);
-    setAnnouncement(`Step ${index + 1} command copied to clipboard`);
-    window.setTimeout(() => {
-      setCopiedStep(null);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(stepCommand);
+      setCopiedStep(index);
+      setAnnouncement(`Step ${index + 1} command copied to clipboard`);
+      window.setTimeout(() => {
+        setCopiedStep(null);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      showCopyFailure();
+    }
   };
 
   const copyModuleExample = async (moduleName: string, exampleCode: string) => {
-    await copyToClipboard(exampleCode);
-    setCopiedModuleExample(moduleName);
-    setAnnouncement(`${moduleName} module Rust example copied to clipboard`);
-    window.setTimeout(() => {
-      setCopiedModuleExample(null);
-      setAnnouncement("");
-    }, 3000);
+    try {
+      await copyToClipboard(exampleCode);
+      setCopiedModuleExample(moduleName);
+      setAnnouncement(`${moduleName} module Rust example copied to clipboard`);
+      window.setTimeout(() => {
+        setCopiedModuleExample(null);
+        setAnnouncement("");
+      }, 3000);
+    } catch {
+      showCopyFailure();
+    }
   };
 
   const renderModuleExample = (moduleName: string, filePath: string, code: string) => (
@@ -1327,6 +1392,78 @@ export default function App() {
             <p className="eyebrow">{selectedModuleData.category}</p>
             <h2 id="modules-heading">{selectedModuleData.name}</h2>
             <p>{selectedModuleData.description}</p>
+            {selectedModuleData.name === "core" && (
+              <>
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>soroban-testkit core API with Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with the wasm32v1-none target</dd>
+
+                    <dt>Environment support</dt>
+                    <dd>
+                      <code>TestEnv</code> wraps <code>soroban_sdk::Env</code>; use <code>env.env()</code> for SDK
+                      calls the core module does not expose directly.
+                    </dd>
+
+                    <dt>Network support</dt>
+                    <dd>
+                      Tests run locally without RPC. Testnet and Mainnet behavior is represented by in-memory
+                      ledger state.
+                    </dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li>
+                      <strong>Deterministic seeds:</strong> Use <code>TestEnv::with_seed(n)</code> when generated
+                      addresses must repeat across runs.
+                    </li>
+                    <li>
+                      <strong>Error classification:</strong> Match on <code>TestkitError::code()</code> rather than
+                      panic message text.
+                    </li>
+                    <li>
+                      <strong>State resets:</strong> Recreate addresses, clients, and <code>Env</code> handles after
+                      <code>reset()</code>.
+                    </li>
+                  </ul>
+                </div>
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="core-faq-list">
+                    {coreTroubleshootingFaq.map((item) => {
+                      const isOpen = openCoreFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`core-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenCoreFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`core-faq-panel-${item.id}`} className="guide-panel">
+                              <p><strong>Cause:</strong> {item.cause}</p>
+                              <p><strong>Solution:</strong> {item.solution}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
             {/* Issue #51: Version and compatibility notes for the ledger module */}
             {selectedModuleData.name === "ledger" && (
               <div className="module-version-info">
@@ -2363,9 +2500,13 @@ export default function App() {
                         <button
                           type="button"
                           onClick={async () => {
-                            await copyToClipboard(cmd);
-                            setAnnouncement(`History command ${commandHistory.length - index} copied`);
-                            window.setTimeout(() => setAnnouncement(""), 1600);
+                            try {
+                              await copyToClipboard(cmd);
+                              setAnnouncement(`History command ${commandHistory.length - index} copied`);
+                              window.setTimeout(() => setAnnouncement(""), 1600);
+                            } catch {
+                              showCopyFailure();
+                            }
                           }}
                           aria-label={`Copy history command ${commandHistory.length - index}`}
                         >
