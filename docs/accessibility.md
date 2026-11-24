@@ -103,3 +103,15 @@ the card now has a separate "Show/Hide [module] module summary" disclosure.
 This control sets `aria-expanded`, references an always-mounted panel with
 `aria-controls`, and hides/unhides actual testing-concern content. Unit and
 browser tests cover both transitions.
+
+
+## Audit and Coverage controls
+
+- Audit strict mode (checkbox with `aria-describedby="strict-help"`) has the
+  name “Fail on warnings (Audit strict mode)”. The help remains its description,
+  and the accessible name contains the visible label for voice control.
+- Coverage’s Open report checkbox (`aria-describedby="open-help"`) uses native
+  `disabled` for LCOV and text. Its help explains that it is available for HTML
+  only. This exposes the disabled state independently of the visual styling.
+
+Component tests verify these names, descriptions and native disabled states.
