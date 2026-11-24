@@ -827,6 +827,7 @@ export default function App() {
   const [coverageOrder, setCoverageOrder] = useState<OptionalArgKey[]>(defaultCoverageOrder);
   const [multilineEditor, setMultilineEditor] = useState(false);
   const [advancedCommand, setAdvancedCommand] = useState("");
+  const advancedCommandLineCount = advancedCommand ? advancedCommand.split("\n").length : 0;
   const [activeWorkflow, setActiveWorkflow] = useState<WorkflowTabId>("coverage");
   const [compareOpen, setCompareOpen] = useState(false);
   const [configB, setConfigB] = useState<CommandOptions | null>(null);
@@ -2882,15 +2883,20 @@ export default function App() {
                     rows={8}
                     onChange={(event) => setAdvancedCommand(event.target.value)}
                     aria-label="Advanced command arguments"
+                    aria-describedby={command === "limits" ? "limits-advanced-line-count" : undefined}
                   />
                 </label>
+                {command === "limits" && (
+                  <p id="limits-advanced-line-count" className="field-help">
+                    {advancedCommandLineCount} {advancedCommandLineCount === 1 ? "line" : "lines"}
+                  </p>
+                )}
                 <button type="button" className="button primary" onClick={applyAdvancedCommand}>
                   Apply multiline command
                 </button>
               </>
             )}
           </div>
-        </div>
 
         {compareOpen && configB && (
           <section
