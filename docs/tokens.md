@@ -58,3 +58,12 @@
   - **Signed `i128` amounts**: All token amounts and balances use `i128`; negative values or overflows panic as in the Soroban SAC.
   - **Auth requirements on transfers**: `token.mint` uses test admin privileges, whereas `token.transfer` and `token.transfer_from` follow standard SAC authorization rules.
   - **Isolated per `TestEnv`**: Each `env.token()` instance is scoped to its `TestEnv` and does not share state across tests.
+
+## Related command-builder workflows
+
+The [command builder](../README.md#features) in this interface provides offline CLI tooling to benchmark, measure, and audit contracts using `soroban_testkit::tokens`:
+
+- **[Limits Workflow](../README.md#features)** — Benchmark and verify resource consumption (CPU instructions and memory) for token entrypoints like `transfer` or custom batch operations via `soroban-testkit limits`. See the [Limits command reference](../README.md#features) and [Limits Workflow verification](../README.md#workflow-testing--verification).
+- **[Coverage Workflow](../README.md#features)** — Generate coverage reports (`html`, `lcov`, `text`) for token test suites using `soroban-testkit coverage` with the [Coverage preflight checklist](../README.md#features).
+- **[Audit Workflow](../README.md#features)** — Verify contract source invariants, strict auth checks, and signed `i128` boundary handling prior to deployment via `soroban-testkit audit`. See [Audit workflow support](../README.md#features).
+
