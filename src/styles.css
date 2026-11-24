@@ -480,6 +480,7 @@ input:invalid:focus, select:invalid:focus { border-color: #ff6b6b; box-shadow: 0
 .copy-options { display: flex; gap: var(--space-md); margin-block-start: var(--space-md); flex-wrap: wrap; }
 .copy-options button { flex: 1; min-width: 200px; }
 .copy-options button:disabled { opacity: 0.5; cursor: not-allowed; }
+.copy-comments-preference { display: inline-flex; align-items: center; gap: var(--space-sm); }
 
 /* Issue #141 & #143: Command actions styling */
 .command-actions { display: flex; gap: var(--space-md); margin-block-start: var(--space-md); flex-wrap: wrap; }

@@ -2,11 +2,18 @@
 
 `soroban_testkit::ledger` provides deterministic time, sequence, and clock control over an in-memory Soroban ledger state.
 
+This guide covers the Rust testing API, not a `soroban-testkit ledger` command.
+The CLI exposes `coverage`, `limits`, and `audit`; its `__limits-probe` helper
+is hidden, and there is no ledger subcommand
+([CLI command definitions](https://github.com/soroban-testkit/testkit-blockchain/blob/main/crates/cli/src/commands/mod.rs)).
+For the command-builder workflows this interface does support, see the
+[README workflow testing overview](../README.md#workflow-testing--verification).
+
 ## Version and compatibility
 
 - **Current version**: Soroban SDK 27.0.x and later.
 - **Minimum Rust version**: Rust 1.84 or later with `wasm32v1-none` target.
-- **Stellar network support**: Compatible with Testnet and Mainnet ledger sequence and timestamp semantics.
+- **Network access**: Uses the in-memory SDK test ledger; it does not connect to Testnet or Mainnet or make RPC calls.
 - **Clock & sequence control**: Uses in-memory mock ledger state via `env.ledger()` with deterministic timestamp and sequence warping.
 
 ## Known considerations

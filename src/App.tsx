@@ -25,6 +25,7 @@ const navSections = [
   { id: "limits-reference", label: "Limits reference" },
 ] as const;
 const navSectionIds = navSections.map((section) => section.id);
+const COPY_COMMENTS_PREFERENCE_KEY = "testkit.copy-with-comments";
 
 // Which CLI workflows are most useful for each module (#130). Keyed by module
 // name so adding a module without a mapping fails type-checking.
@@ -796,7 +797,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [copiedModuleExample, setCopiedModuleExample] = useState<string | null>(null);
-  const [copiedWithComments, setCopiedWithComments] = useState(false);
+  const [includeComments, setIncludeComments] = useState(true);
+  const [copiedCommentsMode, setCopiedCommentsMode] = useState<"with" | "without" | null>(null);
   const [copiedAsScript, setCopiedAsScript] = useState(false);
   // Issue #143: Command history for restore functionality
   const [commandHistory, setCommandHistory] = useState<CommandOptions[]>([]);
@@ -948,7 +950,7 @@ export default function App() {
   const changeCommand = (next: CommandName) => {
     setCommand(next);
     setCopied(false);
-    setCopiedWithComments(false);
+    setCopiedCommentsMode(null);
     setCopiedAsScript(false);
     setAnnouncement("");
   };
@@ -975,6 +977,17 @@ export default function App() {
   useEffect(() => {
     generatedRef.current = generated;
   }, [generated]);
+
+  useEffect(() => {
+    try {
+      const savedPreference = window.localStorage.getItem(COPY_COMMENTS_PREFERENCE_KEY);
+      if (savedPreference === "true" || savedPreference === "false") {
+        setIncludeComments(savedPreference === "true");
+      }
+    } catch {
+      setValidationError("Could not load your saved comments preference. Comments will remain enabled for this visit.");
+    }
+  }, []);
 
 
   const toggleAdvancedEditor = () => {
@@ -1183,19 +1196,33 @@ export default function App() {
   // Issue #144: Copy command with explanatory comments
   const copyWithComments = async () => {
     const requested = generated;
-    const commented = formatCommandWithComments(options);
+    const includeCommentsForCopy = includeComments;
+    const commandToCopy = includeCommentsForCopy ? formatCommandWithComments(options) : generated;
     try {
-      await copyToClipboard(commented);
+      await copyToClipboard(commandToCopy);
       if (generatedRef.current !== requested) return;
       saveToHistory(); // Save to history when copying
-      setCopiedWithComments(true);
-      setAnnouncement("Command with comments copied to clipboard");
+      setCopiedCommentsMode(includeCommentsForCopy ? "with" : "without");
+      setAnnouncement(
+        includeCommentsForCopy
+          ? "Command with comments copied to clipboard"
+          : "Command without comments copied to clipboard",
+      );
       window.setTimeout(() => {
-        setCopiedWithComments(false);
+        setCopiedCommentsMode(null);
         setAnnouncement("");
       }, 3000);
     } catch {
       if (generatedRef.current === requested) showCopyFailure();
+    }
+  };
+
+  const updateIncludeComments = (checked: boolean) => {
+    setIncludeComments(checked);
+    try {
+      window.localStorage.setItem(COPY_COMMENTS_PREFERENCE_KEY, String(checked));
+    } catch {
+      setValidationError("Could not save your comments preference. It will reset when you leave.");
     }
   };
 
@@ -2789,13 +2816,35 @@ export default function App() {
 
           {/* Issue #144 & #145: Additional copy options */}
           <div className="copy-options">
+            <label className="copy-comments-preference">
+              <input
+                type="checkbox"
+                checked={includeComments}
+                onChange={(event) => updateIncludeComments(event.currentTarget.checked)}
+              />
+              Include explanatory comments
+            </label>
             <button 
               type="button" 
               className="button secondary" 
               onClick={copyWithComments}
-              aria-label="Copy command with explanatory comments"
+              aria-label={
+                copiedCommentsMode === "with"
+                  ? "Command with explanatory comments copied"
+                  : copiedCommentsMode === "without"
+                    ? "Command without explanatory comments copied"
+                    : includeComments
+                      ? "Copy command with explanatory comments"
+                      : "Copy command without explanatory comments"
+              }
             >
-              {copiedWithComments ? "Copied with comments" : "Copy with comments"}
+              {copiedCommentsMode === "with"
+                ? "Copied with comments"
+                : copiedCommentsMode === "without"
+                  ? "Copied without comments"
+                  : includeComments
+                    ? "Copy with comments"
+                    : "Copy without comments"}
             </button>
             <button 
               type="button" 
