@@ -307,6 +307,15 @@ export function formatCommandWithComments(options: CommandOptions): string {
 }
 
 // Issue #145: Format command as a reusable shell script
+// Issue #262: user-supplied values are shell-escaped and command parts are
+// joined with continuations only between real parts, so every generated
+// script parses as bash regardless of the workflow configuration.
+const shellDoubleQuote = (value: string): string =>
+  `"${value.replace(/[\\$`"]/g, "\\$&")}"`;
+
+const joinCommandParts = (parts: string[]): string[] =>
+  parts.map((part, index) => `${part}${index < parts.length - 1 ? " \\" : ""}`);
+
 export function formatCommandAsScript(options: CommandOptions): string {
   const lines: string[] = [];
   lines.push("#!/usr/bin/env bash");
@@ -317,48 +326,55 @@ export function formatCommandAsScript(options: CommandOptions): string {
   lines.push("");
   lines.push("set -e  # Exit on error");
   lines.push("");
-  
+
   if (options.command === "coverage") {
     lines.push("# Coverage workflow configuration");
-    lines.push(`PROJECT_PATH="${options.path || "."}"`);
-    lines.push(`FORMAT="${options.format}"`);
+    lines.push(`PROJECT_PATH=${shellDoubleQuote(options.path || ".")}`);
+    lines.push(`FORMAT=${shellDoubleQuote(options.format)}`);
     lines.push(`OPEN_REPORT=${options.open ? "true" : "false"}`);
     lines.push("");
     lines.push("# Generate coverage report");
-    lines.push('soroban-testkit coverage \\');
-    lines.push('  "$PROJECT_PATH" \\');
-    const optionalArgs = buildOptionalArgs(options);
-    optionalArgs.forEach((arg, index) => {
-      const isLast = index === optionalArgs.length - 1;
-      lines.push(`  ${arg}${isLast ? "" : " \\"}`);
-    });
+    const optionalArgs = buildOptionalArgs(options).map((arg) =>
+      arg === `--format ${options.format}` ? '--format "$FORMAT"' : arg,
+    );
+    lines.push(
+      ...joinCommandParts([
+        "soroban-testkit coverage",
+        '  "$PROJECT_PATH"',
+        ...optionalArgs.map((arg) => `  ${arg}`),
+      ]),
+    );
   } else if (options.command === "limits") {
     lines.push("# Resource limits configuration");
-    lines.push(`CONTRACT="${options.path || fallbackValues.limitsContract}"`);
-    lines.push(`FUNCTION="${options.fn || fallbackValues.limitsFunction}"`);
-    lines.push(`RAMP_PARAM="${options.ramp || fallbackValues.limitsRamp}"`);
+    lines.push(`CONTRACT=${shellDoubleQuote(options.path || fallbackValues.limitsContract)}`);
+    lines.push(`FUNCTION=${shellDoubleQuote(options.fn || fallbackValues.limitsFunction)}`);
+    lines.push(`RAMP_PARAM=${shellDoubleQuote(options.ramp || fallbackValues.limitsRamp)}`);
     lines.push("");
     lines.push("# Run resource limits test");
-    lines.push('soroban-testkit limits \\');
-    lines.push('  --contract "$CONTRACT" \\');
-    lines.push('  --fn "$FUNCTION" \\');
-    lines.push('  --ramp "$RAMP_PARAM"');
+    lines.push(
+      ...joinCommandParts([
+        "soroban-testkit limits",
+        '  --contract "$CONTRACT"',
+        '  --fn "$FUNCTION"',
+        '  --ramp "$RAMP_PARAM"',
+      ]),
+    );
   } else {
     lines.push("# Audit workflow configuration");
-    lines.push(`SOURCE_PATH="${options.path || fallbackValues.auditPath}"`);
+    lines.push(`SOURCE_PATH=${shellDoubleQuote(options.path || fallbackValues.auditPath)}`);
     lines.push(`STRICT_MODE=${options.strict ? "true" : "false"}`);
     lines.push("");
     lines.push("# Run security audit");
-    lines.push('soroban-testkit audit \\');
-    lines.push('  "$SOURCE_PATH"');
+    const parts = ["soroban-testkit audit", '  "$SOURCE_PATH"'];
     if (options.strict) {
-      lines.push('  --strict');
+      parts.push("  --strict");
     }
+    lines.push(...joinCommandParts(parts));
   }
-  
+
   lines.push("");
   lines.push('echo "Command completed successfully"');
-  
+
   return lines.join("\n");
 }
 

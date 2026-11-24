@@ -241,6 +241,40 @@ test.describe("Module-card state announcements (#337)", () => {
   });
 });
 
+test.describe("Module filter usability in the tablet grid (#263)", () => {
+  for (const width of [601, 768, 900]) {
+    test(`keeps the filter readable and tall enough without zoom at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 1024 });
+      await page.goto("/");
+
+      const search = page.getByRole("searchbox", { name: "Search modules by name or description" });
+      const metrics = await search.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        return {
+          fontSize: parseFloat(style.fontSize),
+          height: rect.height,
+          width: rect.width,
+          left: rect.left,
+          right: rect.right,
+          overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+        };
+      });
+
+      expect(metrics.fontSize).toBeGreaterThanOrEqual(16);
+      expect(metrics.height).toBeGreaterThanOrEqual(44);
+      expect(metrics.width).toBeGreaterThanOrEqual(240);
+      expect(metrics.left).toBeGreaterThanOrEqual(0);
+      expect(metrics.right).toBeLessThanOrEqual(width + 0.5);
+      expect(metrics.overflow).toBe(false);
+
+      await search.fill("ledger");
+      await expect(page.getByRole("article", { name: "ledger" })).toBeVisible();
+      await expect(page.getByRole("article", { name: "money" })).toHaveCount(0);
+    });
+  }
+});
+
 test.describe("Placeholder text contrast (#327)", () => {
   test("uses opaque, AA-contrast placeholder text", async ({ page }) => {
     await page.goto("/");
@@ -269,4 +303,70 @@ test.describe("Placeholder text contrast (#327)", () => {
     expect(contrast.opacity).toBe("1");
     expect(contrast.ratio).toBeGreaterThanOrEqual(4.5);
   });
+});
+
+test.describe("Required vs Optional badge contrast (#265)", () => {
+  for (const surface of ["dark", "light"] as const) {
+    test(`badge text meets WCAG AA on ${surface} surfaces`, async ({ page }) => {
+      await page.goto("/");
+      if (surface === "light") {
+        await page.addStyleTag({
+          content: `:root {
+            --color-badge-required-bg: var(--color-badge-required-bg-light);
+            --color-badge-required-text: var(--color-badge-required-text-light);
+            --color-badge-optional-bg: var(--color-badge-optional-bg-light);
+            --color-badge-optional-text: var(--color-badge-optional-text-light);
+          }`,
+        });
+      }
+
+      const measured = await page.evaluate(() => {
+        const parse = (value: string): number[] => {
+          if (value.startsWith("#")) {
+            const hex = value.slice(1);
+            return [0, 2, 4].map((index) => parseInt(hex.slice(index, index + 2), 16)).concat(1);
+          }
+          const channels = (value.match(/[\d.]+/g) ?? []).map(Number);
+          return [channels[0] ?? 0, channels[1] ?? 0, channels[2] ?? 0, channels[3] ?? 1];
+        };
+        const luminance = (channels: number[]): number => {
+          const [red, green, blue] = channels.slice(0, 3).map((channel) => {
+            const value = channel / 255;
+            return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+          });
+          return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+        };
+        const canvas = parse(
+          getComputedStyle(document.documentElement).getPropertyValue("--color-canvas").trim(),
+        ).slice(0, 3);
+        const measure = (element: HTMLElement) => {
+          const style = getComputedStyle(element);
+          const [red, green, blue, alpha] = parse(style.backgroundColor);
+          const background = [red, green, blue].map((channel, index) =>
+            channel * alpha + canvas[index] * (1 - alpha),
+          );
+          const foregroundLuminance = luminance(parse(style.color));
+          const backgroundLuminance = luminance(background);
+          return {
+            label: element.textContent?.trim() ?? "",
+            ratio:
+              (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+              (Math.min(foregroundLuminance, backgroundLuminance) + 0.05),
+          };
+        };
+        const optional = [...document.querySelectorAll<HTMLElement>(".badge-optional")].find(
+          (element) => element.textContent?.trim() === "Optional",
+        );
+        const required = document.querySelector<HTMLElement>(".badge-required");
+        if (!required || !optional) return [];
+        return [measure(required), measure(optional)];
+      });
+
+      expect(measured.map((item) => item.label)).toEqual(["Required", "Optional"]);
+      for (const item of measured) {
+        expect(item.ratio).toBeGreaterThanOrEqual(4.5);
+      }
+      await expect(page.locator('input[aria-required="true"]').first()).toHaveAttribute("aria-required", "true");
+    });
+  }
 });

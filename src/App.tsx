@@ -1352,9 +1352,17 @@ export default function App() {
   }, [auditOutputFocusRequest]);
 
   // #102 — validate required fields and announce errors
+  // Issue #264 — expected behavior for Coverage: the path is mandatory even
+  // though the builder can fall back to "." elsewhere, so the error must name
+  // the workflow, the field, and a concrete example the user can type.
   const validateAndCopy = async () => {
     if (!path.trim()) {
-      setValidationError("Project or contract path is required.");
+      setValidationError(
+        command === "coverage"
+          ? "Project or contract path is required for Coverage. Enter a Cargo workspace directory such as . or ./contracts/token before copying the command."
+          : "Project or contract path is required.",
+      );
+      if (command === "coverage") pathInputRef.current?.focus();
       return;
     }
     if (command === "limits") {
@@ -2541,6 +2549,7 @@ export default function App() {
                 onChange={(event) => { setPath(event.target.value); if (event.target.value.trim()) setValidationError(""); }}
                 aria-label="Project or contract path"
                 aria-required="true"
+                aria-invalid={Boolean(validationError) || undefined}
                 aria-describedby="path-help"
               />
               {path && (
@@ -2784,7 +2793,6 @@ export default function App() {
             <button onClick={downloadCommand} className="button-download" aria-label="Download command as shell script">
               Download
             </button>
-          </div>
           </div>
 
           {/* Issue #144 & #145: Additional copy options */}

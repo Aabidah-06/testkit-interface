@@ -47,6 +47,14 @@
   --color-badge-optional-bg: #ffffff10;
   --color-badge-optional-text: #8ea099;
   --color-badge-optional-border: #ffffff1a;
+  /* Issue #265: opaque light-surface variants. Their dark text keeps AA
+     contrast whether the badge sits on a light or a dark surface. */
+  --color-badge-required-bg-light: #d9f5e8;
+  --color-badge-required-text-light: #062017;
+  --color-badge-required-border-light: #66e2ad66;
+  --color-badge-optional-bg-light: #e8eeeb;
+  --color-badge-optional-text-light: #31443d;
+  --color-badge-optional-border-light: #8ea09966;
 
   /* Form Elements */
   --color-input-bg: #ffffff06;
@@ -500,6 +508,18 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
 /* Issue #182: Compact two-column module layout for tablet widths */
 @media (min-width: 601px) and (max-width: 900px) {
   .module-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* #263: the filter shares a row with the Clear button in this grid. Let it
+     use the full header width with a 16px font and a 44px touch target so it
+     stays readable and focusable without zoom at the breakpoint edges. */
+  .module-filter-bar { max-width: 100%; }
+  .module-filter-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  .module-filter-clear { min-height: 44px; }
 }
 
 @media (max-width: 900px) {
