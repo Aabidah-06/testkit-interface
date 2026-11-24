@@ -784,26 +784,6 @@ function highlightCommand(command: string): React.ReactNode {
   return parts;
 }
 
-const TOKENS_RUST_EXAMPLE = `use soroban_testkit::core::TestEnv;
-use soroban_testkit::tokens::MockToken;
-
-#[test]
-fn transfer_updates_balances() {
-    let env = TestEnv::new();
-    env.env().mock_all_auths();
-
-    let admin = env.address();
-    let alice = env.address();
-    let bob = env.address();
-
-    let token = MockToken::deploy(&env, &admin);
-    token.mint(&alice, &10_000_000);
-    token.transfer(&alice, &bob, &2_500_000);
-
-    assert_eq!(token.balance(&alice), 7_500_000);
-    assert_eq!(token.balance(&bob), 2_500_000);
-}`;
-
 export default function App() {
   const [command, setCommand] = useState<CommandName>("coverage");
   const [path, setPath] = useState(".");
@@ -826,6 +806,8 @@ export default function App() {
   const [moduleFilter, setModuleFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<ModuleCategory | null>(null);
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const [expandedModuleCards, setExpandedModuleCards] = useState<Record<string, boolean>>({});
+  const [moduleTocOpen, setModuleTocOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   // #102 — validation errors announced via live region
   const [validationError, setValidationError] = useState("");
@@ -860,7 +842,7 @@ export default function App() {
   const [checkedLimitsPreflight, setCheckedLimitsPreflight] = useState<Record<string, boolean>>({});
   // Issue #86: Advanced options for limits workflow
   const [limitsAdvancedOpen, setLimitsAdvancedOpen] = useState(false);
-  const [limitsAdvancedValues, setLimitsAdvancedValues] = useState<Record<string, string>>({});
+  const [, setLimitsAdvancedValues] = useState<Record<string, string>>({});
   // Issue #81: Prerequisites checklist for coverage workflow
   const [coveragePrerequisitesOpen, setCoveragePrerequisitesOpen] = useState(false);
   const [checkedCoveragePrerequisites, setCheckedCoveragePrerequisites] = useState<Record<string, boolean>>({});
@@ -874,20 +856,16 @@ export default function App() {
   const [openCoreFaqIds, setOpenCoreFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
-  const [coverageAdvancedValues, setCoverageAdvancedValues] = useState<Record<string, string>>({});
+  const [, setCoverageAdvancedValues] = useState<Record<string, string>>({});
   // Issue #80: Ready-to-run examples for coverage workflow
   const [coverageExamplesOpen, setCoverageExamplesOpen] = useState(false);
   // Issue #84: Coverage command reference
   const [coverageCommandReferenceOpen, setCoverageCommandReferenceOpen] = useState(false);
   const [multiContractExamplesOpen, setMultiContractExamplesOpen] = useState(false);
   // Issue #63: Troubleshooting FAQ for the tokens module
-  const [tokensFaqOpen, setTokensFaqOpen] = useState(false);
   // Issue #60: Runnable Rust example for the tokens module
-  const [tokensExampleCopied, setTokensExampleCopied] = useState(false);
   // Issue #62: Troubleshooting FAQ for the events module
-  const [eventsFaqOpen, setEventsFaqOpen] = useState(false);
   // Issue #61: Quick-start walkthrough for the events module
-  const [eventsQuickStartOpen, setEventsQuickStartOpen] = useState(false);
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // Issue #34 — generated command output, selected when the clipboard is blocked
   const commandOutputRef = useRef<HTMLElement>(null);
@@ -950,6 +928,16 @@ export default function App() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  // Reset transient copy feedback in the same event that switches workflows.
+  // Avoid cascading state updates from an effect watching command.
+  const changeCommand = (next: CommandName) => {
+    setCommand(next);
+    setCopied(false);
+    setCopiedWithComments(false);
+    setCopiedAsScript(false);
+    setAnnouncement("");
+  };
+
   const options = useMemo<CommandOptions>(
     () => ({
       command,
@@ -973,12 +961,6 @@ export default function App() {
     generatedRef.current = generated;
   }, [generated]);
 
-  useEffect(() => {
-    setCopied(false);
-    setCopiedWithComments(false);
-    setCopiedAsScript(false);
-    setAnnouncement("");
-  }, [command]);
 
   const toggleAdvancedEditor = () => {
     if (multilineEditor) {
@@ -1043,7 +1025,7 @@ export default function App() {
 
   const resetBuilder = () => {
     if (!window.confirm("Reset the command builder to its default values?")) return;
-    setCommand("coverage");
+    changeCommand("coverage");
     setPath(".");
     setFormat("html");
     setOpen(true);
@@ -1090,7 +1072,7 @@ export default function App() {
     if (commandHistory.length === 0) return;
     
     const previous = commandHistory[0];
-    setCommand(previous.command);
+    changeCommand(previous.command);
     setPath(previous.path);
     setFormat(previous.format);
     setOpen(previous.open);
@@ -1112,9 +1094,9 @@ export default function App() {
     const [tool, selectedCommand, ...args] = tokens;
     if (tool !== "soroban-testkit") return;
 
-    if (selectedCommand === "coverage") setCommand("coverage");
-    if (selectedCommand === "limits") setCommand("limits");
-    if (selectedCommand === "audit") setCommand("audit");
+    if (selectedCommand === "coverage") changeCommand("coverage");
+    if (selectedCommand === "limits") changeCommand("limits");
+    if (selectedCommand === "audit") changeCommand("audit");
 
     const stripQuotes = (value: string) => value.replace(/^["']|["']$/g, "");
 
@@ -2022,6 +2004,31 @@ export default function App() {
                   </button>
                 )}
               </div>
+              {/* Table of contents remains a real, labelled collapsible navigation list. */}
+              <button
+                type="button"
+                className="module-card-disclosure"
+                aria-expanded={moduleTocOpen}
+                aria-controls="module-toc-list"
+                onClick={() => setModuleTocOpen((prev) => !prev)}
+              >
+                {moduleTocOpen ? "Hide" : "Show"} table of contents
+              </button>
+              <nav aria-label="Module table of contents" hidden={!moduleTocOpen}>
+                <ul id="module-toc-list">
+                  {modules.map((mod) => (
+                    <li key={mod.name}>
+                      <button
+                        type="button"
+                        className="module-card-disclosure"
+                        onClick={() => setSelectedModule(mod.name)}
+                      >
+                        {mod.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
               <div className="category-filter-bar" role="group" aria-label="Filter modules by category">
                 <button
                   type="button"
@@ -2060,6 +2067,30 @@ export default function App() {
                       <p>{mod.description}</p>
                       <span className="module-category-tag">{mod.category}</span>
                     </button>
+                    {/* #337: disclose extra information without changing the existing detail navigation. */}
+                    <button
+                      type="button"
+                      className="module-card-disclosure"
+                      aria-expanded={expandedModuleCards[mod.name] ?? false}
+                      aria-controls={`module-details-${mod.name}`}
+                      onClick={() =>
+                        setExpandedModuleCards((prev) => ({ ...prev, [mod.name]: !(prev[mod.name] ?? false) }))
+                      }
+                    >
+                      {expandedModuleCards[mod.name] ? "Hide" : "Show"} {mod.name} module summary
+                    </button>
+                    <div
+                      id={`module-details-${mod.name}`}
+                      className="module-card-details"
+                      hidden={!(expandedModuleCards[mod.name] ?? false)}
+                    >
+                      <p>Testing concerns:</p>
+                      <ul>
+                        {moduleFeatureMatrix[mod.name].map((concern) => (
+                          <li key={concern}>{concern}</li>
+                        ))}
+                      </ul>
+                    </div>
                     <div className="module-card-links" role="group" aria-label={`Workflows for ${mod.name} module`}>
                       <h4 className="sr-only">Available workflows</h4>
                       <a href="#commands" aria-label={`Open the command builder from the ${mod.name} module`}>
@@ -2070,7 +2101,7 @@ export default function App() {
                           key={workflow}
                           href="#commands"
                           aria-label={`Open the ${workflow} workflow related to ${mod.name}`}
-                          onClick={() => setCommand(workflow)}
+                          onClick={() => changeCommand(workflow)}
                         >
                           {workflow}
                         </a>
@@ -2385,7 +2416,7 @@ export default function App() {
               <button
                 key={name}
                 className={command === name ? "active" : ""}
-                onClick={() => setCommand(name)}
+                onClick={() => changeCommand(name)}
                 aria-pressed={command === name}
               >
                 {name}
@@ -2530,21 +2561,30 @@ export default function App() {
                   })}
                 </div>
               </div>
-              <label>
-                <div className="field-header">
-                  <span>Report format</span>
-                  <span className="badge badge-optional">Optional</span>
-                </div>
-                {/* #100 — inline help text for format field */}
+              {/* #324: native report-format radio group with explicit roles and labels. */}
+              <fieldset className="format-fieldset">
+                <legend id="coverage-format-legend">
+                  Report format <span aria-hidden="true" className="badge badge-optional">Optional</span>
+                </legend>
                 <div id="format-help" className="field-help">
                   html opens in a browser; lcov feeds into CI coverage tools; text prints to stdout.
                 </div>
-                <select value={format} onChange={(event) => setFormat(event.target.value as typeof format)} aria-describedby="format-help">
-                  <option>html</option>
-                  <option>lcov</option>
-                  <option>text</option>
-                </select>
-              </label>
+                <div className="format-radio-group" role="radiogroup" aria-labelledby="coverage-format-legend" aria-describedby="format-help">
+                  {(["html", "lcov", "text"] as const).map((value) => (
+                    <label key={value} className="format-radio-option">
+                      <input
+                        type="radio"
+                        name="coverage-report-format"
+                        value={value}
+                        checked={format === value}
+                        onChange={() => setFormat(value)}
+                        aria-describedby="format-help"
+                      />
+                      <span>{value}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="check">
                 <span className="check-content">
                   {/* #100 — inline help text for open checkbox */}

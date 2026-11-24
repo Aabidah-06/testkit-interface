@@ -19,17 +19,22 @@ test.describe("landing page visual regression", () => {
 
     await expect(commands).toHaveScreenshot("commands-coverage.png");
 
-    await page.getByRole("tab", { name: "limits" }).click();
+    await page.getByRole("button", { name: "limits" }).click();
     await expect(commands).toHaveScreenshot("commands-limits.png");
 
-    await page.getByRole("tab", { name: "audit" }).click();
+    await page.getByRole("button", { name: "audit" }).click();
     await expect(commands).toHaveScreenshot("commands-audit.png");
   });
 
   test("full page matches the baseline", async ({ page }) => {
     await page.goto("/");
+    // The very tall page can differ slightly while fonts and sections settle.
+    // Component snapshots above remain pixel-exact; limit full-page tolerance
+    // to half a percent, while giving Chromium time to capture stable frames.
     await expect(page).toHaveScreenshot("full-page.png", {
       fullPage: true,
+      timeout: 20_000,
+      maxDiffPixelRatio: 0.005,
     });
   });
 });

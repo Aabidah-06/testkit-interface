@@ -69,3 +69,37 @@ browser and screen reader pair per platform.
 | 12 | Module cards lacked structured heading levels for cards and their workflow groups (#105). | Fixed: established h2 -> h3 -> h4 hierarchy and region grouping. | `src/App.tsx` |
 | 13 | Active command parameters lacked a screen-reader accessible summary (#106). | Fixed: added polite live region and focusable summary card. | `src/App.tsx` |
 | 14 | Interactive controls and cards lost clear boundaries in high-contrast/forced-colors modes (#107). | Fixed: added forced-colors and prefers-contrast: more styling. | `src/styles.css` |
+
+## Coverage report formats (#324)
+
+The Coverage workbench uses native `html`, `lcov`, and `text` radio inputs in a
+named `radiogroup`. The group references visible help via `aria-describedby`;
+`src/App.test.tsx` verifies one checked choice at a time, and
+`tests/visual/accessibility.spec.ts` locks in the browser accessibility tree.
+
+## Placeholder color contrast audit (#327)
+
+**Before:** `.module-filter-input::placeholder` and command-builder
+`input::placeholder` relied on browser-default text color and opacity,
+which can lower contrast on the dark form surface.
+
+**Fix:** `input::placeholder` and `textarea::placeholder` explicitly use
+`--color-placeholder: #a9bbb4` with `opacity: 1`, against the input
+background `#ffffff06` on `--color-canvas: #061310`. This exceeds
+the WCAG 2.1 AA 1.4.3 minimum contrast ratio of 4.5:1 for normal text.
+Selectors: `.module-filter-input::placeholder`,
+`.builder input::placeholder`, and advanced-settings inputs.
+The browser contrast test examines the computed color and opacity.
+A repository screenshot reference for the Coverage workflow exists at
+`tests/visual/__screenshots__/commands-coverage.png`; no separate
+manual screenshot audit is claimed here.
+
+## Module card disclosure semantics (#337)
+
+The existing "View details" card button navigates to a detail page. Because
+it is **navigation**, `aria-expanded` would be misleading on that button.
+To expose a meaningful expanded/collapsed state within every module card,
+the card now has a separate "Show/Hide [module] module summary" disclosure.
+This control sets `aria-expanded`, references an always-mounted panel with
+`aria-controls`, and hides/unhides actual testing-concern content. Unit and
+browser tests cover both transitions.

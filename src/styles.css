@@ -25,6 +25,8 @@
   --color-text-primary: #e9f4ef;
   --color-text-secondary: #a9bbb4;
   --color-text-muted: #6f817a;
+  /* #327: WCAG AA placeholder foreground on the dark input background. */
+  --color-placeholder: #a9bbb4;
   --color-text-body: #91a39c;
   --color-text-label: #a7b8b1;
   --color-text-tab: #8ea099;
@@ -442,6 +444,26 @@ label { display: grid; gap: 9px; margin-bottom: var(--space-2xl); color: var(--c
 
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-xl); }
 input, select { width: 100%; padding: var(--space-md) 13px; color: var(--color-text-primary); background: var(--color-input-bg); border: 1px solid var(--color-border-input); border-radius: var(--radius-sm); outline: none; transition: border-color .2s ease, box-shadow .2s ease; }
+/* #327: avoid browser defaults that dim placeholders below WCAG AA. */
+input::placeholder, textarea::placeholder { color: var(--color-placeholder); opacity: 1; }
+
+/* #324: native radio controls keep their accessible names and visible focus. */
+.format-fieldset { border: 0; padding: 0; margin: 0 0 var(--space-2xl); min-width: 0; }
+.format-fieldset legend { padding: 0; margin-bottom: var(--space-md); color: var(--color-text-label); font-size: .78rem; }
+.format-fieldset legend .badge { margin-left: var(--space-md); }
+.format-radio-group { display: flex; flex-wrap: wrap; gap: var(--space-md); }
+.format-radio-option { display: inline-flex; align-items: center; gap: var(--space-xs); margin: 0; padding: var(--space-sm) var(--space-md); border: 1px solid var(--color-border-input); border-radius: var(--radius-sm); cursor: pointer; color: var(--color-text-primary); }
+.format-radio-option input { width: auto; margin: 0; accent-color: var(--color-accent); }
+.format-radio-option:focus-within { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* #337: the original card button navigates; a second button really expands. */
+.module-card-disclosure { display: block; margin-top: var(--space-md); padding: var(--space-xs) 0; border: 0; border-bottom: 1px solid currentColor; background: transparent; color: var(--color-accent); font-size: .76rem; cursor: pointer; }
+.module-card-disclosure:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+.module-card-details[hidden] { display: none; }
+.module-card-details { margin-top: var(--space-md); font-size: .8rem; color: var(--color-text-body); }
+.module-card-details p { margin: 0 0 var(--space-xs); }
+.module-card-details ul { margin: 0; padding-left: var(--space-xl); }
+
 input:focus, select:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent-subtle); }
 input:invalid, select:invalid { border-color: #ff6b6b; }
 input:invalid:focus, select:invalid:focus { border-color: #ff6b6b; box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1); }
@@ -1705,4 +1727,76 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
     grid-template-columns: 1fr;
   }
 }
+
+/* Keyboard and 320px reflow regressions (#109, #110): protect focus and
+   prevent intrinsically sized grid/flex children from escaping the viewport. */
+main :is(a[href], button, input, select, textarea, [tabindex="0"]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
+.skip-link:focus-visible { outline-color: var(--color-accent-text-dark); }
+.commands, .command-copy, .builder, .comparison, .comparison-config,
+.comparison-config .row, .output, .copy-options, .command-actions {
+  min-width: 0;
+}
+.commands { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+@media (max-width: 900px) {
+  .commands { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 540px) {
+  .builder { padding: var(--space-md); }
+  .comparison, .comparison-config { max-width: 100%; }
+  .comparison-config .row { grid-template-columns: minmax(0, 1fr); }
+  .builder input, .builder select, .comparison input, .comparison select {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .output, .copy-options, .command-actions { flex-wrap: wrap; }
+  .output > *, .copy-options > *, .command-actions > * { min-width: 0; max-width: 100%; }
+}
+
+/* Native focus on scrollable code samples and the skip link. */
+main pre[tabindex="0"]:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+@media (max-width: 540px) {
+  .commands { display: block; }
+  .command-copy, .builder { width: 100%; }
+  .command-copy { margin-bottom: var(--space-3xl); }
+  .builder { padding: var(--space-sm); }
+  .output button { overflow-wrap: anywhere; }
+}
+
+/* Critical focus contrast for explicitly focusable reference code. */
+.quick-ref-item pre:focus-visible, .quick-reference-card pre:focus-visible,
+.reference-card pre:focus-visible, .reference-example-steps pre:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+/* Keep the top skip link in the viewport even when a tall page scrolls. */
+.skip-link { position: fixed; top: -100px; }
+.skip-link:focus, .skip-link:focus-visible { top: var(--space-lg); }
+@media (max-width: 540px) {
+  /* Avoid viewport-wide overflow from grid min-content and long CLI examples. */
+  main { width: 100%; max-width: 100vw; box-sizing: border-box; }
+  .hero, .install, .modules, .docs, .feature-matrix,
+  .glossary, .commands, .guides, .quick-reference-card,
+  .command-copy, .builder {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .hero { grid-template-columns: minmax(0, 1fr); }
+  .hero > *, .commands > * { min-width: 0; }
+  .install-steps, .module-grid, .module-grid article { min-width: 0; }
+  .builder input, .builder select, .builder textarea { box-sizing: border-box; }
+  .quick-reference-card pre, .reference-card pre, .output code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Skip-link focus transitions must not leave keyboard users looking offscreen. */
+.skip-link { transition: none; }
