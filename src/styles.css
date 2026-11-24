@@ -535,13 +535,27 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
   }
 }
 
-/* Issue #183: Landscape phone layout for command form */
+/* Issue #183: Landscape phone layout for command form.
+   #333: use the documented spacing scale and keep every control inside the
+   viewport so short, wide viewports cannot clip or horizontally scroll. */
 @media (min-width: 541px) and (max-width: 900px) and (max-height: 600px) {
-  .commands { padding: 60px var(--page-padding); }
+  .commands { padding: calc(var(--space-6xl) + var(--space-md)) var(--page-padding); }
   .builder { padding: var(--space-3xl); }
   label { margin-bottom: var(--space-lg); gap: var(--space-xs); }
   .command-tabs { margin-top: var(--space-3xl); }
-  .description { min-height: 36px; font-size: .9rem; }
+  .description { min-height: calc(var(--space-5xl) + var(--space-2xs)); font-size: .9rem; }
+
+  /* Grid and flex children need an explicit zero minimum before they can
+     shrink; otherwise their intrinsic width forces overflow in this range. */
+  .commands, .command-copy, .builder, .advanced-command-block { min-width: 0; max-width: 100%; }
+  .builder input, .builder select, .builder textarea { min-width: 0; max-width: 100%; }
+  .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .command-tabs, .output, .copy-options, .command-actions { flex-wrap: wrap; }
+  .output > *, .copy-options > *, .command-actions > * { min-width: 0; max-width: 100%; }
+  .copy-options button { min-width: 0; }
+  .command-history-item { flex-wrap: wrap; }
+  .history-command { flex-basis: 100%; min-width: 0; }
+  .output code, .history-command { overflow-wrap: anywhere; }
 }
 
 /* Issue #180: Prevent navigation links from wrapping awkwardly on small screens */

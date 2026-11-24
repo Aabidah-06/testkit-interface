@@ -26,6 +26,9 @@ automatically, what was fixed, and what still needs a manual pass.
 | Screen reader | "Copied" label remains visible for at least 2 000 ms to give AT time to announce it (#103) | `src/App.test.tsx` |
 | High contrast | Controls, buttons, tabs, inputs, and cards retain boundaries in high-contrast/forced-colors modes (#107) | `src/styles.css`, `src/App.test.tsx` |
 | Zoom | No horizontal page scroll and no clipped controls at 640px and 320px CSS widths | `tests/visual/accessibility.spec.ts` |
+| Responsive | No horizontal overflow or clipped controls in the landscape command form at 541px-900px width and max 600px height (#333) | `tests/visual/landing.spec.ts` |
+| Screen reader | Multiline editor has a visible matching label, described help, disclosure state, and an applied-command announcement (#334) | `src/App.test.tsx`, `tests/visual/accessibility.spec.ts` |
+| Keyboard | Escape clears the module filter and category chip without blurring the search field (#336) | `src/App.test.tsx`, `tests/visual/accessibility.spec.ts` |
 
 These checks read the accessibility tree and computed styles. They do not
 replace listening to the page with a real screen reader.
@@ -103,3 +106,19 @@ the card now has a separate "Show/Hide [module] module summary" disclosure.
 This control sets `aria-expanded`, references an always-mounted panel with
 `aria-controls`, and hides/unhides actual testing-concern content. Unit and
 browser tests cover both transitions.
+
+## Multiline command editor virtual-cursor audit (#334)
+
+Audited the Audit workflow's advanced editor against this document's stated
+goals and WCAG 2.1 AA (1.3.1 Info and Relationships, 3.3.2 Labels or
+Instructions, 4.1.2 Name, Role, Value). Reference screenshot for the workflow
+tab state: `tests/visual/__screenshots__/commands-audit.png`; the expanded
+editor and its accessibility tree are exercised in
+`tests/visual/accessibility.spec.ts`.
+
+| # | Selector / screen | Finding | Status |
+| --- | --- | --- | --- |
+| 1 | `.advanced-command-block textarea[aria-label="Advanced command arguments"]` | The visible "Advanced command editor" label was overridden by a different `aria-label`, so a virtual-cursor user heard a name that did not match the screen; the wrapping `<label>` also contained block-level `<div>` markup. | Fixed: a real `<label for="advanced-command-editor">` now supplies the visible, matching accessible name. |
+| 2 | `#advanced-command-editor` | No `aria-describedby`, so multiline syntax guidance was unavailable to screen reader users. | Fixed: visible `#advanced-command-help` text is referenced by `aria-describedby`. |
+| 3 | `.advanced-command-block > button.button.secondary` | The disclosure exposed neither `aria-expanded` nor `aria-controls`, so its state was unavailable outside the visual interface. | Fixed: both attributes, with an always-mounted `#advanced-command-panel` so the reference always resolves. |
+| 4 | `.advanced-command-block .button.primary` | Applying a command only changed generated output; nothing was announced to a virtual-cursor user. | Fixed: the polite live region announces "Multiline command applied"; invalid input is reported in the assertive validation region. |

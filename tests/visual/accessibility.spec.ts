@@ -224,6 +224,43 @@ test.describe("Coverage report format semantics (#324)", () => {
   });
 });
 
+test.describe("Multiline command editor virtual cursor (#334)", () => {
+  test("exposes a labelled textarea, visible help, and a stable disclosure state", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "audit" }).click();
+
+    const toggle = page.getByRole("button", { name: "Advanced arguments" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(toggle).toHaveAttribute("aria-controls", "advanced-command-panel");
+    await expect(page.locator("#advanced-command-panel")).toBeHidden();
+
+    await toggle.click();
+
+    const editor = page.getByRole("textbox", { name: "Advanced command editor" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(editor).toBeVisible();
+    await expect(editor).toHaveAttribute("aria-describedby", "advanced-command-help");
+    await expect(page.locator("#advanced-command-help")).toContainText("backslash");
+    await expect(page.getByRole("button", { name: "Apply multiline command" })).toBeVisible();
+  });
+});
+
+test.describe("Module filter Escape behaviour (#336)", () => {
+  test("Escape clears the filter and keeps focus on the search box", async ({ page }) => {
+    await page.goto("/");
+    const search = page.getByRole("searchbox", { name: "Search modules by name or description" });
+
+    await search.fill("ledger");
+    await expect(page.getByRole("heading", { name: "ledger", level: 3 })).toBeVisible();
+
+    await search.press("Escape");
+
+    await expect(search).toHaveValue("");
+    await expect(search).toBeFocused();
+    await expect(page.getByRole("heading", { name: "core", level: 3 })).toBeVisible();
+  });
+});
+
 test.describe("Module-card state announcements (#337)", () => {
   test("exposes a stable panel reference and both aria-expanded states", async ({ page }) => {
     await page.goto("/");
