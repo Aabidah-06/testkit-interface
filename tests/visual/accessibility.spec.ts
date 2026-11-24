@@ -241,6 +241,21 @@ test.describe("Module-card state announcements (#337)", () => {
   });
 });
 
+test.describe("Preflight checklist touch targets (#260)", () => {
+  test("expand/collapse controls are at least 44px tall on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    const toggles = page.locator(".guide-card .guide-header .preflight-toggle");
+    expect(await toggles.count()).toBe(2);
+    for (let i = 0; i < await toggles.count(); i += 1) {
+      const box = await toggles.nth(i).boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  });
+});
+
 test.describe("Placeholder text contrast (#327)", () => {
   test("uses opaque, AA-contrast placeholder text", async ({ page }) => {
     await page.goto("/");

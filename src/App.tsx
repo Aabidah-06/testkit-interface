@@ -814,8 +814,6 @@ export default function App() {
   const moduleSearchRef = useRef<HTMLInputElement>(null);
   // #101 — focus the command section heading after a mode switch
   const commandHeadingRef = useRef<HTMLHeadingElement>(null);
-  // #266 — ref for the generated command output panel so the jump shortcut can focus it
-  const auditOutputPanelRef = useRef<HTMLDivElement>(null);
 
   // Resetting from the empty state removes the button that had focus, so move
   // focus back to the search box instead of dropping it to <body> (#123).
@@ -871,6 +869,7 @@ export default function App() {
   const comparePanelRef = useRef<HTMLDivElement>(null);
   // Issue #34 — generated command output, selected when the clipboard is blocked
   const commandOutputRef = useRef<HTMLElement>(null);
+  const commandOutputPanelRef = useRef<HTMLDivElement>(null);
   // Issue #35 — field inputs whose Clear button unmounts itself, so focus is restored
   const pathInputRef = useRef<HTMLInputElement>(null);
   const fnInputRef = useRef<HTMLInputElement>(null);
@@ -891,6 +890,8 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   // #266 — incremented when the "jump to Audit output" shortcut is pressed
   const [auditOutputFocusRequest, setAuditOutputFocusRequest] = useState(0);
+  // #261 — incremented when the "jump to Limits output" shortcut is pressed
+  const [limitsOutputFocusRequest, setLimitsOutputFocusRequest] = useState(0);
   
   // Prevent unused variable warnings
   void _featureMatrixOpen;
@@ -918,6 +919,15 @@ export default function App() {
         event.preventDefault();
         setCommand("audit");
         setAuditOutputFocusRequest((request) => request + 1);
+        return;
+      }
+
+      // Issue #261 — Ctrl/Cmd + Shift + L jumps straight to the Limits command
+      // output panel, including from inside form fields.
+      if (event.shiftKey && event.key.toLowerCase() === "l") {
+        event.preventDefault();
+        setCommand("limits");
+        setLimitsOutputFocusRequest((request) => request + 1);
         return;
       }
 
@@ -1342,7 +1352,7 @@ export default function App() {
   // that a workflow switch also triggers.
   useEffect(() => {
     if (auditOutputFocusRequest === 0) return;
-    const panel = auditOutputPanelRef.current;
+    const panel = commandOutputPanelRef.current;
     if (!panel) return;
     panel.focus();
     if (typeof panel.scrollIntoView === "function") {
@@ -1350,6 +1360,24 @@ export default function App() {
     }
     setAnnouncement("Jumped to the Audit command output panel");
   }, [auditOutputFocusRequest]);
+
+  // Issue #261 — Expected behavior: pressing Ctrl/Cmd + Shift + L from anywhere
+  // on the page selects the Limits workflow (when another workflow is active),
+  // then focuses the "Generated command output" region and scrolls it into view
+  // so keyboard and screen-reader users land directly on the Limits command.
+  // The jump is announced through the polite live region. This effect is
+  // declared after the #101 and #266 effects so panel focus wins over the
+  // heading focus that a workflow switch also triggers.
+  useEffect(() => {
+    if (limitsOutputFocusRequest === 0) return;
+    const panel = commandOutputPanelRef.current;
+    if (!panel) return;
+    panel.focus();
+    if (typeof panel.scrollIntoView === "function") {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setAnnouncement("Jumped to the Limits command output panel");
+  }, [limitsOutputFocusRequest]);
 
   // #102 — validate required fields and announce errors
   const validateAndCopy = async () => {
@@ -2758,7 +2786,7 @@ export default function App() {
           </section>
 
           <div
-            ref={auditOutputPanelRef}
+            ref={commandOutputPanelRef}
             className="output"
             role="region"
             aria-label="Generated command output"
@@ -2784,7 +2812,6 @@ export default function App() {
             <button onClick={downloadCommand} className="button-download" aria-label="Download command as shell script">
               Download
             </button>
-          </div>
           </div>
 
           {/* Issue #144 & #145: Additional copy options */}
@@ -3604,7 +3631,7 @@ soroban-testkit = "0.2.0"`}</code>
             <h3>Coverage workflow: Preflight checklist</h3>
             <button
               type="button"
-              className="guide-toggle"
+              className="guide-toggle preflight-toggle"
               aria-expanded={coveragePreflightOpen}
               aria-controls="coverage-preflight-panel"
               onClick={() => setCoveragePreflightOpen((open) => !open)}
@@ -3802,7 +3829,7 @@ soroban-testkit = "0.2.0"`}</code>
             <h3>Limits workflow: Preflight checklist</h3>
             <button
               type="button"
-              className="guide-toggle"
+              className="guide-toggle preflight-toggle"
               aria-expanded={limitsPreflightOpen}
               aria-controls="limits-preflight-panel"
               onClick={() => setLimitsPreflightOpen((open) => !open)}

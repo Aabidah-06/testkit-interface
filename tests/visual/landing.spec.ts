@@ -49,6 +49,21 @@ test.describe("responsive layout enhancements", () => {
     await expect(hero).toHaveScreenshot("hero-large-text.png");
   });
 
+  test("large-text hero links keep 44px tap targets at 1200px+ (#258)", async ({ page }) => {
+    for (const width of [1200, 1400]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/");
+
+      const links = page.locator("#top a[href]");
+      expect(await links.count()).toBeGreaterThanOrEqual(3);
+      for (let i = 0; i < await links.count(); i += 1) {
+        const box = await links.nth(i).boundingBox();
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+      }
+    }
+  });
+
   test("navigation links do not wrap awkwardly on small screens (#180)", async ({
     page,
   }) => {

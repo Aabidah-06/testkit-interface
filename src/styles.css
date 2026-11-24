@@ -68,6 +68,7 @@
   --space-6xl: 48px;
   --space-section: 100px;
   --page-padding: 5vw;
+  --tap-target-min: 44px;
 
   /* Radii */
   --radius-xs: 4px;
@@ -495,6 +496,13 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
 @media (min-width: 1200px) {
   .hero h1 { font-size: 6rem; line-height: .98; }
   .hero .lede { font-size: 1.2rem; line-height: 1.8; }
+  .hero .actions .button,
+  .hero .repo-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-target-min);
+  }
 }
 
 /* Issue #182: Compact two-column module layout for tablet widths */
@@ -1439,6 +1447,10 @@ footer { display: flex; justify-content: space-between; padding: 34px var(--page
   
   .guide-toggle {
     width: 100%;
+  }
+  .preflight-toggle {
+    min-height: var(--tap-target-min);
+    padding: var(--space-sm) var(--space-lg);
   }
 }
 
