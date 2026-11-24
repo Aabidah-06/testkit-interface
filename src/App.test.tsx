@@ -40,7 +40,7 @@ describe("App command copy", () => {
 
     render(<App />);
 
-    fireEvent.click(screen.getByRole("tab", { name: "audit" }));
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
 
     await waitFor(() =>
@@ -76,24 +76,17 @@ describe("Coverage option combinations component tests (#200)", () => {
     vi.restoreAllMocks();
   });
 
-  it("updates format dropdown options (html, lcov, text)", () => {
+  it("updates format radio options (html, lcov, text)", () => {
     render(<App />);
-    const formatSelect = screen.getByLabelText(/report format/i);
 
-    fireEvent.change(formatSelect, { target: { value: "lcov" } });
-    expect(
-      screen.getByText("soroban-testkit coverage . --format lcov --open"),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "lcov" }));
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format lcov --open");
 
-    fireEvent.change(formatSelect, { target: { value: "text" } });
-    expect(
-      screen.getByText("soroban-testkit coverage . --format text --open"),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "text" }));
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format text --open");
 
-    fireEvent.change(formatSelect, { target: { value: "html" } });
-    expect(
-      screen.getByText("soroban-testkit coverage . --format html --open"),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "html" }));
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format html --open");
   });
 
   it("toggles open report checkbox flag", () => {
@@ -102,15 +95,11 @@ describe("Coverage option combinations component tests (#200)", () => {
 
     // Uncheck open report
     fireEvent.click(openCheckbox);
-    expect(
-      screen.getByText("soroban-testkit coverage . --format html"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format html");
 
     // Check open report back on
     fireEvent.click(openCheckbox);
-    expect(
-      screen.getByText("soroban-testkit coverage . --format html --open"),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format html --open");
   });
 
   it("quotes coverage path when containing spaces and copies combined command", async () => {
@@ -122,16 +111,15 @@ describe("Coverage option combinations component tests (#200)", () => {
 
     render(<App />);
 
-    const pathInput = screen.getByLabelText(/project or contract path/i);
-    const formatSelect = screen.getByLabelText(/report format/i);
+    const pathInput = screen.getByRole("textbox", { name: "Project or contract path" });
     const openCheckbox = screen.getByLabelText(/open report when complete/i);
 
     fireEvent.change(pathInput, { target: { value: "./contracts/my escrow" } });
-    fireEvent.change(formatSelect, { target: { value: "lcov" } });
+    fireEvent.click(screen.getByRole("radio", { name: "lcov" }));
     fireEvent.click(openCheckbox); // unchecked
 
     const expectedCommand = 'soroban-testkit coverage "./contracts/my escrow" --format lcov';
-    expect(screen.getByText(expectedCommand)).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent(expectedCommand);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expectedCommand));
@@ -153,8 +141,8 @@ describe("Limits option combinations component tests (#199)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "limits" }));
 
-    const fnInput = screen.getByLabelText(/function/i);
-    const rampInput = screen.getByLabelText(/ramp parameter/i);
+    const fnInput = screen.getByRole("textbox", { name: "Function" });
+    const rampInput = screen.getByRole("textbox", { name: "Ramp parameter" });
 
     expect(fnInput).toHaveValue("batch_payout");
     expect(rampInput).toHaveValue("recipients");
@@ -162,11 +150,9 @@ describe("Limits option combinations component tests (#199)", () => {
     fireEvent.change(fnInput, { target: { value: "deposit_tokens" } });
     fireEvent.change(rampInput, { target: { value: "depositors" } });
 
-    expect(
-      screen.getByText(
-        "soroban-testkit limits --contract . --fn deposit_tokens --ramp depositors",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent(
+      "soroban-testkit limits --contract . --fn deposit_tokens --ramp depositors",
+    );
   });
 
   it("handles paths with spaces and copies limits command combinations", async () => {
@@ -179,9 +165,9 @@ describe("Limits option combinations component tests (#199)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "limits" }));
 
-    const pathInput = screen.getByLabelText(/project or contract path/i);
-    const fnInput = screen.getByLabelText(/function/i);
-    const rampInput = screen.getByLabelText(/ramp parameter/i);
+    const pathInput = screen.getByRole("textbox", { name: "Project or contract path" });
+    const fnInput = screen.getByRole("textbox", { name: "Function" });
+    const rampInput = screen.getByRole("textbox", { name: "Ramp parameter" });
 
     fireEvent.change(pathInput, {
       target: { value: "./target/release build/token.wasm" },
@@ -191,7 +177,7 @@ describe("Limits option combinations component tests (#199)", () => {
 
     const expectedCommand =
       'soroban-testkit limits --contract "./target/release build/token.wasm" --fn mint_batch --ramp accounts';
-    expect(screen.getByText(expectedCommand)).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent(expectedCommand);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expectedCommand));
@@ -215,17 +201,17 @@ describe("Audit option combinations component tests (#198)", () => {
 
     const strictCheckbox = screen.getByLabelText(/fail on warnings/i);
     expect(strictCheckbox).toBeChecked();
-    expect(screen.getByText("soroban-testkit audit . --strict")).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit . --strict");
 
     // Uncheck strict
     fireEvent.click(strictCheckbox);
     expect(strictCheckbox).not.toBeChecked();
-    expect(screen.getByText("soroban-testkit audit .")).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit .");
 
     // Check strict again
     fireEvent.click(strictCheckbox);
     expect(strictCheckbox).toBeChecked();
-    expect(screen.getByText("soroban-testkit audit . --strict")).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit . --strict");
   });
 
   it("quotes audit path with spaces and copies command to clipboard", async () => {
@@ -238,14 +224,14 @@ describe("Audit option combinations component tests (#198)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "audit" }));
 
-    const pathInput = screen.getByLabelText(/project or contract path/i);
+    const pathInput = screen.getByRole("textbox", { name: "Project or contract path" });
     const strictCheckbox = screen.getByLabelText(/fail on warnings/i);
 
     fireEvent.change(pathInput, { target: { value: "./contracts/safe math" } });
     fireEvent.click(strictCheckbox); // uncheck strict
 
     const expectedCommand = 'soroban-testkit audit "./contracts/safe math"';
-    expect(screen.getByText(expectedCommand)).toBeInTheDocument();
+    expect(screen.getByTestId("command-output")).toHaveTextContent(expectedCommand);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(expectedCommand));
@@ -267,7 +253,7 @@ describe("Workflow switching component tests (#201)", () => {
     expect(
       screen.getByText("Generate contract-test coverage through cargo-llvm-cov."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/report format/i)).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: /report format/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/open report when complete/i)).toBeInTheDocument();
 
     // Switch to limits
@@ -278,9 +264,9 @@ describe("Workflow switching component tests (#201)", () => {
     expect(
       screen.getByText("Ramp a contract input to find its practical resource ceiling."),
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/function/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/ramp parameter/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/report format/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Function" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ramp parameter" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: /report format/i })).not.toBeInTheDocument();
 
     // Switch to audit
     fireEvent.click(auditButton);
@@ -291,12 +277,12 @@ describe("Workflow switching component tests (#201)", () => {
       screen.getByText("Scan contract sources for common auth, arithmetic, and TTL risks."),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/fail on warnings/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/function/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Function" })).not.toBeInTheDocument();
 
     // Switch back to coverage
     fireEvent.click(coverageButton);
     expect(coverageButton).toHaveClass("active");
-    expect(screen.getByLabelText(/report format/i)).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: /report format/i })).toBeInTheDocument();
     expect(screen.queryByLabelText(/fail on warnings/i)).not.toBeInTheDocument();
   });
 
@@ -336,13 +322,13 @@ describe("Workflow switching component tests (#201)", () => {
 describe("Module filter and empty-state layout (#188)", () => {
   it("renders all 7 modules by default", () => {
     render(<App />);
-    expect(screen.getByText("core")).toBeInTheDocument();
-    expect(screen.getByText("ledger")).toBeInTheDocument();
-    expect(screen.getByText("money")).toBeInTheDocument();
-    expect(screen.getByText("events")).toBeInTheDocument();
-    expect(screen.getByText("tokens")).toBeInTheDocument();
-    expect(screen.getByText("auth")).toBeInTheDocument();
-    expect(screen.getByText("ttl")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "core", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ledger", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "money", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "events", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "tokens", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "auth", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ttl", level: 3 })).toBeInTheDocument();
   });
 
   it("filters modules matching search query by name or description", () => {
@@ -351,9 +337,9 @@ describe("Module filter and empty-state layout (#188)", () => {
 
     fireEvent.change(filterInput, { target: { value: "ledger" } });
 
-    expect(screen.getByText("ledger")).toBeInTheDocument();
-    expect(screen.queryByText("tokens")).not.toBeInTheDocument();
-    expect(screen.queryByText("auth")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ledger", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "tokens", level: 3 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "auth", level: 3 })).not.toBeInTheDocument();
   });
 
   it("renders an accessible empty-state layout when no modules match the filter", () => {
@@ -374,7 +360,7 @@ describe("Module filter and empty-state layout (#188)", () => {
 
     fireEvent.click(resetButton);
 
-    expect(screen.getByText("core")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "core", level: 3 })).toBeInTheDocument();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
@@ -383,13 +369,13 @@ describe("Module filter and empty-state layout (#188)", () => {
     const filterInput = screen.getByLabelText("Search modules by name or description");
 
     fireEvent.change(filterInput, { target: { value: "events" } });
-    expect(screen.getByText("events")).toBeInTheDocument();
-    expect(screen.queryByText("ttl")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "events", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "ttl", level: 3 })).not.toBeInTheDocument();
 
     const clearButton = screen.getByRole("button", { name: "Clear module search" });
     fireEvent.click(clearButton);
 
-    expect(screen.getByText("ttl")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ttl", level: 3 })).toBeInTheDocument();
   });
 
   it("explains the empty state and returns focus to the search box on reset (#123)", () => {
@@ -428,21 +414,21 @@ describe("Category filters (#124)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Environment" }));
 
-    expect(screen.getByText("core")).toBeInTheDocument();
-    expect(screen.getByText("ledger")).toBeInTheDocument();
-    expect(screen.queryByText("money")).not.toBeInTheDocument();
-    expect(screen.queryByText("auth")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "core", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ledger", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "money", level: 3 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "auth", level: 3 })).not.toBeInTheDocument();
   });
 
   it("toggles category off when the active chip is clicked again", () => {
     render(<App />);
     const envChip = screen.getByRole("button", { name: "Environment" });
     fireEvent.click(envChip);
-    expect(screen.queryByText("money")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "money", level: 3 })).not.toBeInTheDocument();
 
     fireEvent.click(envChip);
-    expect(screen.getByText("money")).toBeInTheDocument();
-    expect(screen.getByText("core")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "money", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "core", level: 3 })).toBeInTheDocument();
   });
 
   it("combines category filter with the text search", () => {
@@ -451,9 +437,9 @@ describe("Category filters (#124)", () => {
     const filterInput = screen.getByLabelText("Search modules by name or description");
     fireEvent.change(filterInput, { target: { value: "token" } });
 
-    expect(screen.getByText("tokens")).toBeInTheDocument();
-    expect(screen.queryByText("money")).not.toBeInTheDocument();
-    expect(screen.queryByText("core")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "tokens", level: 3 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "money", level: 3 })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "core", level: 3 })).not.toBeInTheDocument();
   });
 });
 
@@ -488,8 +474,8 @@ describe("Module detail pages with breadcrumbs (#126)", () => {
 
     const breadcrumb = screen.getByRole("navigation", { name: /breadcrumb/i });
     fireEvent.click(within(breadcrumb).getByRole("link", { name: "Modules" }));
-    expect(screen.getByText("core")).toBeInTheDocument();
-    expect(screen.getByText("ttl")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "core", level: 3 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "ttl", level: 3 })).toBeInTheDocument();
   });
 
   it("navigates back via the back button on the detail page", () => {
@@ -497,7 +483,7 @@ describe("Module detail pages with breadcrumbs (#126)", () => {
     fireEvent.click(screen.getByRole("button", { name: /view details for ttl module/i }));
 
     fireEvent.click(screen.getByRole("button", { name: /back to all modules/i }));
-    expect(screen.getByText("events")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "events", level: 3 })).toBeInTheDocument();
   });
 
   it("supports keyboard activation of module cards", () => {
@@ -593,7 +579,7 @@ describe("Visual distinction between required and optional settings (#196)", () 
 
   it("displays Optional badge on optional format and open options in coverage workflow", () => {
     render(<App />);
-    expect(screen.getByLabelText(/report format/i)).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: /report format/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/open report when complete/i)).toBeInTheDocument();
     expect(screen.getAllByText("Optional").length).toBeGreaterThanOrEqual(2);
   });
@@ -736,8 +722,8 @@ describe("Command builder enhancements", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "limits" }));
 
-    expect(screen.getByText(/Use the exported symbol name from your contract ABI/i)).toBeInTheDocument();
-    expect(screen.getByText(/Use the parameter you want to increase in the contract input set/i)).toBeInTheDocument();
+    expect(document.getElementById("fn-help")).toBeInTheDocument();
+    expect(document.getElementById("ramp-help")).toBeInTheDocument();
   });
 
   it("supports a multiline advanced command editor", () => {
@@ -1039,9 +1025,7 @@ describe("Accessibility enhancements (#104, #105, #106, #107)", () => {
 
   it("provides screen-reader summary of active command configuration (#106)", () => {
     render(<App />);
-    const summaryRegion = screen.getByRole("region", {
-      name: "Active command configuration summary",
-    });
+    const summaryRegion = screen.getByTestId("active-command-sr-summary").closest("section");
     expect(summaryRegion).toBeInTheDocument();
     expect(summaryRegion).toHaveAttribute("tabindex", "0");
 
@@ -1209,7 +1193,7 @@ describe("Accessibility statement", () => {
     const footer = screen.getByRole("contentinfo");
     fireEvent.click(within(footer).getByRole("button", { name: /accessibility statement/i }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByText(/accessibility statement/i)).toBeInTheDocument();
+    expect(within(screen.getByRole("dialog")).getByRole("heading", { name: /accessibility statement/i })).toBeInTheDocument();
   });
 
   it("closes the dialog when the close button is clicked", () => {
@@ -1399,14 +1383,9 @@ describe("Session-only command history UI", () => {
     // Copy a command
     fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
     
-    await waitFor(() => {
-      const toggleButton = screen.queryByRole("button", { name: /show \(1\)/i });
-      if (toggleButton) {
-        fireEvent.click(toggleButton);
-        const clearButton = screen.getByRole("button", { name: /clear history/i });
-        fireEvent.click(clearButton);
-      }
-    });
+    await waitFor(() => expect(screen.getByRole("button", { name: /show \(1\)/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /show \(1\)/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear history/i }));
     
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: /command history/i })).not.toBeInTheDocument();
@@ -1436,10 +1415,10 @@ describe("Inline help text for form fields (#100)", () => {
     expect(helpEl!.textContent?.length).toBeGreaterThan(0);
   });
 
-  it("associates help text with the format select when coverage workflow is active", () => {
+  it("associates help text with the format radio group when coverage workflow is active", () => {
     render(<App />);
-    const formatSelect = screen.getByRole("combobox", { name: /report format/i });
-    const describedBy = formatSelect.getAttribute("aria-describedby");
+    const formatGroup = screen.getByRole("radiogroup", { name: /report format/i });
+    const describedBy = formatGroup.getAttribute("aria-describedby");
     expect(describedBy).toBeTruthy();
     const helpEl = document.getElementById(describedBy!);
     expect(helpEl).not.toBeNull();
@@ -1660,10 +1639,10 @@ describe("Events module common failure modes (#53)", () => {
     fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
 
     expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
-    expect(screen.getByText(/expected N events, found M/i)).toBeInTheDocument();
-    expect(screen.getByText(/topic mismatch at index/i)).toBeInTheDocument();
-    expect(screen.getByText(/failed to decode event data as T/i)).toBeInTheDocument();
-    expect(screen.getByText(/no events captured for contract/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/expected N events, found M/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/topic mismatch at index/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/failed to decode event data as T/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/no events captured for contract/i)[0]).toBeInTheDocument();
   });
 });
 
@@ -1674,11 +1653,11 @@ describe("Events module API overview (#56)", () => {
     fireEvent.click(screen.getByRole("button", { name: /view details for events module/i }));
 
     expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
-    expect(screen.getByText("EventLog::capture(&env, f)")).toBeInTheDocument();
-    expect(screen.getByText("log.assert_count(n)")).toBeInTheDocument();
-    expect(screen.getByText("log.assert_topic(&id, topics)")).toBeInTheDocument();
-    expect(screen.getByText("log.assert_data::<T>(&id, val)")).toBeInTheDocument();
-    expect(screen.getByText("log.for_contract(&id)")).toBeInTheDocument();
+    expect(screen.getAllByText("EventLog::capture(&env, f)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("log.assert_count(n)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("log.assert_topic(&id, topics)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("log.assert_data::<T>(&id, val)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("log.for_contract(&id)")[0]).toBeInTheDocument();
   });
 });
 
@@ -1854,10 +1833,10 @@ describe("Tokens module common failure modes (#67)", () => {
     fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
 
     expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
-    expect(screen.getByText(/insufficient balance/i)).toBeInTheDocument();
-    expect(screen.getByText(/negative amount or overflow/i)).toBeInTheDocument();
-    expect(screen.getByText(/allowance exceeded or missing approval/i)).toBeInTheDocument();
-    expect(screen.getByText(/authorization error on transfer/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/insufficient balance/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/negative amount or overflow/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/allowance exceeded or missing approval/i)[0]).toBeInTheDocument();
+    expect(screen.getAllByText(/authorization error on transfer/i)[0]).toBeInTheDocument();
   });
 });
 
@@ -2164,13 +2143,13 @@ describe("Tokens module API overview (#58)", () => {
     fireEvent.click(screen.getByRole("button", { name: /view details for tokens module/i }));
 
     expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
-    expect(screen.getByText("env.token()")).toBeInTheDocument();
-    expect(screen.getByText("token.address()")).toBeInTheDocument();
-    expect(screen.getByText("token.mint(&to, amount)")).toBeInTheDocument();
-    expect(screen.getByText("token.transfer(&from, &to, amount)")).toBeInTheDocument();
-    expect(screen.getByText("token.approve(&owner, &spender, amount, expiration_ledger)")).toBeInTheDocument();
-    expect(screen.getByText("token.transfer_from(&spender, &from, &to, amount)")).toBeInTheDocument();
-    expect(screen.getByText("token.balance(&id) / token.assert_balance(&id, expected)")).toBeInTheDocument();
+    expect(screen.getAllByText("env.token()")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.address()")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.mint(&to, amount)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.transfer(&from, &to, amount)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.approve(&owner, &spender, amount, expiration_ledger)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.transfer_from(&spender, &from, &to, amount)")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("token.balance(&id) / token.assert_balance(&id, expected)")[0]).toBeInTheDocument();
   });
 });
 
@@ -2227,5 +2206,41 @@ describe("Money module troubleshooting FAQ (#57)", () => {
     fireEvent.click(secondQuestionBtn);
     expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(/Use checked_add, checked_sub, and checked_mul/i)).toBeInTheDocument();
+  });
+});
+
+describe("Accessible report format markup (#324)", () => {
+  it("exposes an exclusive, labelled radio group and announces changed output", () => {
+    render(<App />);
+    const group = screen.getByRole("radiogroup", { name: "Report format" });
+    expect(group).toHaveAttribute("aria-describedby", "format-help");
+    const choices = within(group).getAllByRole("radio");
+    expect(choices).toHaveLength(3);
+    expect(within(group).getByRole("radio", { name: "html" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "lcov" })).not.toBeChecked();
+    fireEvent.click(within(group).getByRole("radio", { name: "lcov" }));
+    expect(within(group).getByRole("radio", { name: "lcov" })).toBeChecked();
+    expect(within(group).getByRole("radio", { name: "html" })).not.toBeChecked();
+    expect(screen.getByText("soroban-testkit coverage . --format lcov --open")).toBeInTheDocument();
+  });
+});
+
+describe("Module-card disclosures (#337)", () => {
+  it("announces expanded/collapsed state for the real summary panel", () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: "Show core module summary" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "module-details-core");
+    const panel = document.getElementById("module-details-core");
+    expect(panel).not.toBeNull();
+    expect(panel).toHaveAttribute("hidden");
+    fireEvent.click(toggle);
+    const expanded = screen.getByRole("button", { name: "Hide core module summary" });
+    expect(expanded).toHaveAttribute("aria-expanded", "true");
+    expect(panel).not.toHaveAttribute("hidden");
+    expect(within(panel!).getByText("Deterministic execution")).toBeVisible();
+    fireEvent.click(expanded);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(panel).toHaveAttribute("hidden");
   });
 });
