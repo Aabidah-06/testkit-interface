@@ -2470,3 +2470,41 @@ describe("Module-card disclosures (#337)", () => {
     expect(panel).toHaveAttribute("hidden");
   });
 });
+
+
+describe("Assigned command-builder regressions (#346, #348, #351)", () => {
+  it("emits --strict only when Audit strict mode is enabled (#346)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+
+    const output = screen.getByTestId("command-output");
+    const strict = screen.getByRole("checkbox", { name: /fail on warnings/i });
+
+    expect(output).toHaveTextContent("--strict");
+    fireEvent.click(strict);
+    expect(output).not.toHaveTextContent("--strict");
+    expect(output).not.toHaveTextContent("--strict false");
+  });
+
+  it("shows an explanatory empty state when Command history is opened before any copy (#348)", () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /show \(0\)/i }));
+
+    expect(
+      screen.getByText("No commands yet. Copy a generated command to add it to this session history."),
+    ).toBeVisible();
+  });
+
+  it("shows live character and line counts for the Audit multiline editor (#351)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
+
+    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    fireEvent.change(editor, { target: { value: "soroban-testkit audit ./src\n--strict" } });
+
+    expect(screen.getByText("36 characters · 2 lines")).toBeVisible();
+    expect(editor).toHaveAttribute("aria-describedby", "audit-editor-count");
+  });
+});
