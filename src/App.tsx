@@ -832,6 +832,9 @@ export default function App() {
   const moduleSearchRef = useRef<HTMLInputElement>(null);
   // #101 — focus the command section heading after a mode switch
   const commandHeadingRef = useRef<HTMLHeadingElement>(null);
+  // Stable focus targets when the history panel or its controls unmount (#343).
+  const historyToggleRef = useRef<HTMLButtonElement>(null);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
 
   // Resetting from the empty state removes the button that had focus, so move
   // focus back to the search box instead of dropping it to <body> (#123).
@@ -2704,7 +2707,7 @@ export default function App() {
             <code data-testid="command-output" ref={commandOutputRef} tabIndex={0}>
               {highlightCommand(generated)}
             </code>
-            <button onClick={validateAndCopy}>{copied ? "Copied" : "Copy"}</button>
+            <button ref={copyButtonRef} onClick={validateAndCopy}>{copied ? "Copied" : "Copy"}</button>
             {/* #146 — download action for generated shell script */}
             <button onClick={downloadCommand} className="button-download" aria-label="Download command as shell script">
               Download
@@ -2739,14 +2742,29 @@ export default function App() {
                 <button
                   type="button"
                   className="history-toggle"
+                  ref={historyToggleRef}
                   aria-expanded={historyOpen}
-                  onClick={() => setHistoryOpen(!historyOpen)}
+                  aria-controls={historyOpen ? "command-history-list" : undefined}
+                  onClick={() => setHistoryOpen((open) => !open)}
                 >
                   {historyOpen ? "Hide" : "Show"} ({commandHistory.length})
                 </button>
               </div>
               {historyOpen && (
-                <div className="command-history-list" role="log" aria-live="polite">
+                <div
+                  id="command-history-list"
+                  className="command-history-list"
+                  role="log"
+                  aria-live="polite"
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setHistoryOpen(false);
+                      historyToggleRef.current?.focus();
+                    }
+                  }}
+                >
                   {commandHistory.slice().reverse().map((entry, index) => {
                     const cmd = buildCommand(entry);
                     return (
@@ -2777,6 +2795,8 @@ export default function App() {
                     type="button"
                     className="button secondary"
                     onClick={() => {
+                      // Clear unmounts its focused button; return to the persistent Copy action.
+                      copyButtonRef.current?.focus();
                       setCommandHistory([]);
                       setHistoryOpen(false);
                       setAnnouncement("Command history cleared");
