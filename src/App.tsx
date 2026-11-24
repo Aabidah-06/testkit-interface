@@ -2807,8 +2807,7 @@ export default function App() {
             </button>
           </div>
 
-          {/* #147, #348 — session-only command history stays discoverable even before
-              the first command is copied, with a concise empty state for new users. */}
+          {/* #147, #348 — keep Command History discoverable before the first copy. */}
           <section className="command-history" aria-labelledby="command-history-heading">
             <div className="command-history-header">
               <h3 id="command-history-heading">Command history</h3>
@@ -2829,50 +2828,49 @@ export default function App() {
                 role="log"
                 aria-live="polite"
               >
-                {commandHistory.length === 0 ? (
+                {commandHistory.length === 0 && (
                   <p className="command-history-empty">
                     No commands yet. Copy a generated command to add it to this session history.
                   </p>
-                ) : (
-                  <>
-                    {commandHistory.slice().reverse().map((entry, index) => {
-                    const cmd = buildCommand(entry);
-                    return (
-                      <div key={index} className="command-history-item">
-                        <span className="history-timestamp">
-                          Entry {commandHistory.length - index}
-                        </span>
-                        <code className="history-command">{cmd}</code>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await copyToClipboard(cmd);
-                              setAnnouncement(`History command ${commandHistory.length - index} copied`);
-                              window.setTimeout(() => setAnnouncement(""), 1600);
-                            } catch {
-                              showCopyFailure();
-                            }
-                          }}
-                          aria-label={`Copy history command ${commandHistory.length - index}`}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    );
-                    })}
-                    <button
-                      type="button"
-                      className="button secondary"
-                      onClick={() => {
-                        setCommandHistory([]);
-                        setAnnouncement("Command history cleared");
-                        window.setTimeout(() => setAnnouncement(""), 1600);
-                      }}
-                    >
-                      Clear history
-                    </button>
-                  </>
+                )}
+                {commandHistory.slice().reverse().map((entry, index) => {
+                  const cmd = buildCommand(entry);
+                  return (
+                    <div key={index} className="command-history-item">
+                      <span className="history-timestamp">
+                        Entry {commandHistory.length - index}
+                      </span>
+                      <code className="history-command">{cmd}</code>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await copyToClipboard(cmd);
+                            setAnnouncement(`History command ${commandHistory.length - index} copied`);
+                            window.setTimeout(() => setAnnouncement(""), 1600);
+                          } catch {
+                            showCopyFailure();
+                          }
+                        }}
+                        aria-label={`Copy history command ${commandHistory.length - index}`}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  );
+                })}
+                {commandHistory.length > 0 && (
+                  <button
+                    type="button"
+                    className="button secondary"
+                    onClick={() => {
+                      setCommandHistory([]);
+                      setAnnouncement("Command history cleared");
+                      window.setTimeout(() => setAnnouncement(""), 1600);
+                    }}
+                  >
+                    Clear history
+                  </button>
                 )}
               </div>
             )}
