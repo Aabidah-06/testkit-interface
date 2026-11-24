@@ -51,6 +51,6 @@ npm test
 
 - Rust testing library and CLI: `testkit-blockchain`
 - Documentation and CLI workbench: this repository
-- Module guides: [auth](docs/auth.md), [events](docs/events.md), [money](docs/money.md), [tokens](docs/tokens.md), [ttl](docs/ttl.md)
+- Module guides: [auth](docs/auth.md), [events](docs/events.md), [ledger](docs/ledger.md), [money](docs/money.md), [tokens](docs/tokens.md), [ttl](docs/ttl.md)
 
 Licensed under Apache-2.0.

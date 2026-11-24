@@ -1935,6 +1935,228 @@ describe("Auth module troubleshooting FAQ (#69)", () => {
   });
 });
 
+// Issue #50 — concise API overview for the money module
+describe("Money module API overview (#50)", () => {
+  it("renders a concise API overview when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /api overview/i })).toBeInTheDocument();
+    expect(screen.getByText("Conservation::new(before, after)")).toBeInTheDocument();
+    expect(screen.getByText(".assert_holds()")).toBeInTheDocument();
+    expect(screen.getByText("assert_conserved_over(initial, steps)")).toBeInTheDocument();
+    expect(screen.getByText("adversarial_amounts()")).toBeInTheDocument();
+  });
+});
+
+// Issue #49 — quick-start walkthrough for the money module
+describe("Money module quick-start walkthrough (#49)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("renders a quick-start walkthrough and keyboard-accessible example for the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /quick-start walkthrough/i })).toBeInTheDocument();
+    expect(screen.getByText(/Add soroban-testkit as a dev-dependency/i)).toBeInTheDocument();
+    expect(screen.getByText(/Create a TestEnv, token, and test addresses/i)).toBeInTheDocument();
+    const codeRegion = screen.getByLabelText(/money module runnable rust example/i);
+    expect(codeRegion).toHaveAttribute("tabindex", "0");
+    expect(codeRegion.textContent).toContain("Conservation::new(initial_total, after_total).assert_holds()");
+  });
+
+  it("copies the money quick-start example and announces it via the live region", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    const copyBtn = screen.getByRole("button", { name: /copy money module rust example/i });
+    await act(async () => {
+      fireEvent.click(copyBtn);
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("fn escrow_release_conserves_total_supply"));
+    expect(copyBtn).toHaveTextContent("Copied");
+    const liveRegion = document.querySelector('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toMatch(/money module rust example copied/i);
+  });
+});
+
+// Issue #51 — version and compatibility notes for the ledger module
+describe("Ledger module version and compatibility (#51)", () => {
+  it("documents version and compatibility notes when viewing the ledger module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for ledger module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(screen.getByText("Soroban SDK 27.0.x and later")).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+    expect(screen.getByText(/Monotonic progression:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Offline deterministic state:/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #48 — common failure modes for the money module
+describe("Money module common failure modes (#48)", () => {
+  it("documents common failure modes when viewing the money module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for money module/i }));
+
+    expect(screen.getByRole("heading", { name: /common failure modes/i })).toBeInTheDocument();
+    expect(screen.getByText(/supply conservation mismatch/i)).toBeInTheDocument();
+    expect(screen.getByText(/i128 arithmetic overflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/rounding dust accumulation/i)).toBeInTheDocument();
+    expect(screen.getByText(/negative amount input/i)).toBeInTheDocument();
+  });
+});
+
+// Issue #36 — copied feedback must wait for a successful clipboard write
+describe("Copy feedback only after clipboard success (#36)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("does not show copied feedback while the clipboard write is pending", async () => {
+    let finishWrite = () => {};
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => resolve();
+        }),
+    );
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+
+    expect(screen.getByRole("button", { name: /^Copy$/ })).toBeInTheDocument();
+
+    await act(async () => {
+      finishWrite();
+    });
+
+    expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("announces a clipboard failure instead of showing copied feedback", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("clipboard denied"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    });
+
+    expect(screen.getByRole("button", { name: /^Copy$/ })).toBeInTheDocument();
+    await waitFor(() => {
+      const alertRegion = document.querySelector('[aria-live="assertive"]');
+      expect(alertRegion?.textContent).toMatch(/could not copy/i);
+    });
+  });
+});
+
+// Issue #37 — generated output and copy feedback stay aligned after rapid mode changes
+describe("Rapid workflow mode changes (#37)", () => {
+  const originalClipboard = navigator.clipboard;
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("keeps the final mode's output visible when an earlier copy finishes after a switch", async () => {
+    let finishWrite = () => {};
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = () => resolve();
+        }),
+    );
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "limits" }));
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("soroban-testkit coverage"));
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit limits");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+
+    await act(async () => {
+      finishWrite();
+    });
+
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit limits");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+  });
+});
+
+// Issue #38 — version and compatibility notes for the core module
+describe("Core module version and compatibility (#38)", () => {
+  it("documents version and compatibility notes when viewing the core module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for core module/i }));
+
+    expect(screen.getByRole("heading", { name: /version and compatibility/i })).toBeInTheDocument();
+    expect(
+      screen.getByText("soroban-testkit core API with Soroban SDK 27.0.x and later"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Rust 1.84 or later with the wasm32v1-none target")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /known considerations/i })).toBeInTheDocument();
+  });
+});
+
+// Issue #39 — troubleshooting FAQ for the core module
+describe("Core module troubleshooting FAQ (#39)", () => {
+  it("renders a keyboard-accessible troubleshooting FAQ when viewing the core module", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /view details for core module/i }));
+
+    expect(screen.getByRole("heading", { name: /troubleshooting faq/i })).toBeInTheDocument();
+
+    const firstQuestionBtn = screen.getByRole("button", {
+      name: /why does try_warp_to return an error\?/i,
+    });
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    expect(firstQuestionBtn).toHaveAttribute("aria-controls", "core-faq-panel-warp-to-earlier");
+
+    fireEvent.click(firstQuestionBtn);
+    expect(firstQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/earlier than env.now\(\)/i)).toBeInTheDocument();
+
+    const secondQuestionBtn = screen.getByRole("button", {
+      name: /why did an advance call overflow ledger arithmetic\?/i,
+    });
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(secondQuestionBtn);
+    expect(secondQuestionBtn).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/smaller whole-second durations/i)).toBeInTheDocument();
+  });
+});
+
 // Issue #58 — concise API overview for the tokens module
 describe("Tokens module API overview (#58)", () => {
   it("renders a concise API overview when viewing the tokens module", () => {
