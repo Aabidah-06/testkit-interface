@@ -160,8 +160,17 @@ export const fallbackValues = {
   auditPath: "./src",
 } as const;
 
+const VALID_FORMATS = ["html", "lcov", "text"] as const;
+
+function validateFormat(format: unknown): format is "html" | "lcov" | "text" {
+  return VALID_FORMATS.includes(format as "html" | "lcov" | "text");
+}
+
 export function buildCommand(options: CommandOptions): string {
   if (options.command === "coverage") {
+    if (!validateFormat(options.format)) {
+      throw new Error(`Invalid format: ${options.format}. Must be one of: ${VALID_FORMATS.join(", ")}`);
+    }
     return [
       "soroban-testkit coverage",
       options.path && quote(options.path),

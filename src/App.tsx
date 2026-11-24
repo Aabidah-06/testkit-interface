@@ -6,6 +6,7 @@ import {
   formatCommandAsScript,
   modules,
   moduleCategories,
+  fallbackValues,
   type CommandName,
   type ModuleCategory,
   type OptionalArgKey,
@@ -627,15 +628,15 @@ function effectiveDefaults(options: CommandOptions): DefaultRow[] {
       rows.push({
         key: "contract",
         label: "Contract",
-        value: "target/wasm32v1-none/release/contract.wasm",
+        value: fallbackValues.limitsContract,
         applied: true,
       });
     }
     if (!options.fn) {
-      rows.push({ key: "fn", label: "Function", value: "batch_payout", applied: true });
+      rows.push({ key: "fn", label: "Function", value: fallbackValues.limitsFunction, applied: true });
     }
     if (!options.ramp) {
-      rows.push({ key: "ramp", label: "Ramp", value: "recipients", applied: true });
+      rows.push({ key: "ramp", label: "Ramp", value: fallbackValues.limitsRamp, applied: true });
     }
   }
   if (options.command === "audit" && !options.path) {
