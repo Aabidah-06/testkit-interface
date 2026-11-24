@@ -814,6 +814,8 @@ export default function App() {
   const moduleSearchRef = useRef<HTMLInputElement>(null);
   // #101 — focus the command section heading after a mode switch
   const commandHeadingRef = useRef<HTMLHeadingElement>(null);
+  // #266 — ref for the generated command output panel so the jump shortcut can focus it
+  const auditOutputPanelRef = useRef<HTMLDivElement>(null);
 
   // Resetting from the empty state removes the button that had focus, so move
   // focus back to the search box instead of dropping it to <body> (#123).
@@ -887,6 +889,8 @@ export default function App() {
   const [_glossaryOpen, _setGlossaryOpen] = useState(false);
   // #147 — command history UI toggle
   const [historyOpen, setHistoryOpen] = useState(false);
+  // #266 — incremented when the "jump to Audit output" shortcut is pressed
+  const [auditOutputFocusRequest, setAuditOutputFocusRequest] = useState(0);
   
   // Prevent unused variable warnings
   void _featureMatrixOpen;
@@ -903,6 +907,17 @@ export default function App() {
           event.preventDefault();
           document.getElementById("module-search")?.focus();
         }
+        return;
+      }
+
+      // Issue #266 — Ctrl/Cmd + Shift + A jumps straight to the Audit command
+      // output panel. The focus effect below documents and applies the full
+      // expected behavior. This chord is deliberately allowed while focus is
+      // inside a field (e.g. the strict-mode checkbox or multiline editor).
+      if (event.shiftKey && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        setCommand("audit");
+        setAuditOutputFocusRequest((request) => request + 1);
         return;
       }
 
@@ -1317,6 +1332,24 @@ export default function App() {
     }
     commandHeadingRef.current?.focus();
   }, [command]);
+
+  // Issue #266 — Expected behavior: pressing Ctrl/Cmd + Shift + A from anywhere
+  // on the page selects the Audit workflow (when another workflow is active),
+  // then focuses the "Generated command output" region and scrolls it into view
+  // so keyboard and screen-reader users land directly on the Audit command.
+  // The jump is announced through the polite live region. This effect is
+  // declared after the #101 effect so panel focus wins over the heading focus
+  // that a workflow switch also triggers.
+  useEffect(() => {
+    if (auditOutputFocusRequest === 0) return;
+    const panel = auditOutputPanelRef.current;
+    if (!panel) return;
+    panel.focus();
+    if (typeof panel.scrollIntoView === "function") {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setAnnouncement("Jumped to the Audit command output panel");
+  }, [auditOutputFocusRequest]);
 
   // #102 — validate required fields and announce errors
   const validateAndCopy = async () => {
@@ -2725,10 +2758,12 @@ export default function App() {
           </section>
 
           <div
+            ref={auditOutputPanelRef}
             className="output"
             role="region"
             aria-label="Generated command output"
             aria-describedby="command-output-desc"
+            tabIndex={-1}
           >
             <span id="command-output-desc" className="sr-only">
               Copy this command to your terminal to run the selected workflow.
@@ -2749,6 +2784,7 @@ export default function App() {
             <button onClick={downloadCommand} className="button-download" aria-label="Download command as shell script">
               Download
             </button>
+          </div>
           </div>
 
           {/* Issue #144 & #145: Additional copy options */}
