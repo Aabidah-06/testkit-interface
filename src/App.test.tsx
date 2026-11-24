@@ -82,6 +82,52 @@ describe("App command copy", () => {
   });
 });
 
+describe("Copy comments preference (#339)", () => {
+  const originalClipboard = navigator.clipboard;
+  const preferenceKey = "testkit.copy-with-comments";
+
+  beforeEach(() => {
+    localStorage.removeItem(preferenceKey);
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(preferenceKey);
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      configurable: true,
+    });
+    vi.restoreAllMocks();
+  });
+
+  it("remembers the choice to copy without comments and copies the plain command", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    const { unmount } = render(<App />);
+    const preference = screen.getByRole("checkbox", { name: "Include explanatory comments" });
+    expect(preference).toBeChecked();
+
+    fireEvent.click(preference);
+    expect(localStorage.getItem(preferenceKey)).toBe("false");
+    unmount();
+
+    render(<App />);
+    await waitFor(() =>
+      expect(screen.getByRole("checkbox", { name: "Include explanatory comments" })).not.toBeChecked(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy command without explanatory comments" }),
+    );
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith("soroban-testkit coverage . --format html --open"),
+    );
+  });
+});
+
 describe("Coverage option combinations component tests (#200)", () => {
   const originalClipboard = navigator.clipboard;
 
@@ -126,7 +172,7 @@ describe("Coverage option combinations component tests (#200)", () => {
     expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format html --open");
   });
 
-  it("quotes coverage path when containing spaces and copies combined command", async () => {
+  it("escapes coverage paths containing spaces and quotes in the generated and copied command", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -138,11 +184,11 @@ describe("Coverage option combinations component tests (#200)", () => {
     const pathInput = screen.getByRole("textbox", { name: "Project or contract path" });
     const openCheckbox = screen.getByLabelText(/open report when complete/i);
 
-    fireEvent.change(pathInput, { target: { value: "./contracts/my escrow" } });
+    fireEvent.change(pathInput, { target: { value: `./contracts/my "quoted" escrow's source` } });
     fireEvent.click(screen.getByRole("radio", { name: "lcov" }));
     fireEvent.click(openCheckbox); // unchecked
 
-    const expectedCommand = 'soroban-testkit coverage "./contracts/my escrow" --format lcov';
+    const expectedCommand = `soroban-testkit coverage './contracts/my "quoted" escrow'\\''s source' --format lcov`;
     expect(screen.getByTestId("command-output")).toHaveTextContent(expectedCommand);
 
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
@@ -1599,8 +1645,10 @@ describe("Validation errors announced via live region (#102)", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
 
     await waitFor(() => {
-      const alertRegion = document.querySelector('[aria-live="assertive"]');
-      expect(alertRegion?.textContent).toMatch(/path.*required/i);
+      const alertRegion = screen.getByRole("alert");
+      expect(alertRegion).toHaveAttribute("aria-live", "assertive");
+      expect(alertRegion).toHaveClass("sr-only");
+      expect(alertRegion).toHaveTextContent(/path.*required/i);
     });
     // Clipboard should not be called when validation fails
     expect(writeText).not.toHaveBeenCalled();

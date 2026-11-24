@@ -112,7 +112,13 @@ export const modules: ReadonlyArray<{
   { name: "ttl", description: "Storage lifetime and expiry simulation", category: "Storage" },
 ];
 
-const quote = (value: string) => (value.includes(" ") ? `"${value}"` : value);
+const quote = (value: string) => {
+  if (/^[A-Za-z0-9_./-]+$/.test(value)) return value;
+  if (/^[A-Za-z0-9_./ -]+$/.test(value)) return `"${value}"`;
+
+  // Paths with shell-significant characters must remain one literal POSIX argument.
+  return `'${value.replace(/'/g, "'\\''")}'`;
+};
 
 const getOptionalArgOrder = (options: CommandOptions): OptionalArgKey[] => {
   if (options.command === "coverage") {
