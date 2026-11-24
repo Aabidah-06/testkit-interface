@@ -563,6 +563,64 @@ describe("Module search keyboard shortcut (#127)", () => {
   });
 });
 
+describe("Audit command output shortcut (#266)", () => {
+  it("focuses the generated output panel with Ctrl+Shift+A in the audit tab", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+
+    fireEvent.keyDown(document.body, { key: "A", ctrlKey: true, shiftKey: true });
+
+    const outputPanel = screen.getByRole("region", { name: "Generated command output" });
+    expect(outputPanel).toHaveAttribute("tabindex", "-1");
+    expect(outputPanel).toHaveFocus();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit");
+  });
+
+  it("selects the audit workflow and focuses its output from another tab", () => {
+    render(<App />);
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage");
+
+    fireEvent.keyDown(document.body, { key: "A", metaKey: true, shiftKey: true });
+
+    expect(screen.getByRole("button", { name: "audit" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Generated command output" })).toHaveFocus();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit");
+    expect(screen.getByText("Jumped to the Audit command output panel")).toBeInTheDocument();
+  });
+
+  it("still works while focus is inside the strict-mode checkbox", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+    const strict = screen.getByRole("checkbox", { name: /fail on warnings/i });
+    strict.focus();
+
+    fireEvent.keyDown(strict, { key: "A", ctrlKey: true, shiftKey: true });
+
+    expect(screen.getByRole("region", { name: "Generated command output" })).toHaveFocus();
+  });
+
+  it("still works while the multiline command editor is open", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
+    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    editor.focus();
+
+    fireEvent.keyDown(editor, { key: "A", ctrlKey: true, shiftKey: true });
+
+    expect(screen.getByRole("region", { name: "Generated command output" })).toHaveFocus();
+  });
+
+  it("does not jump on Ctrl+A without Shift", () => {
+    render(<App />);
+
+    fireEvent.keyDown(document.body, { key: "a", ctrlKey: true });
+
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage");
+    expect(screen.getByRole("region", { name: "Generated command output" })).not.toHaveFocus();
+  });
+});
+
 describe("Reduced-width layout for navigation labels (#189)", () => {
   it("renders accessible navigation links with responsive container attributes", () => {
     render(<App />);
