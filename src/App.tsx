@@ -382,6 +382,68 @@ fn escrow_release_conserves_total_supply() {
     Conservation::new(initial_total, after_total).assert_holds();
 }`;
 
+const moneyTroubleshootingFaq = [
+  {
+    id: "conservation-off-by-one",
+    question: "Why does Conservation::assert_holds() fail by 1 or a few stroops?",
+    cause: "Integer division in fee, split, or pro-rata calculations truncated a remainder without accounting for dust.",
+    solution:
+      "Route remainder or dust explicitly to a designated recipient or treasury so total supply is conserved across every transfer.",
+  },
+  {
+    id: "overflow-on-boundary-inputs",
+    question: "Why does my contract panic on i128::MAX or adversarial boundary inputs?",
+    cause: "Unchecked arithmetic (+, -, *) overflowed i128 in debug or WASM builds.",
+    solution:
+      "Use checked_add, checked_sub, and checked_mul and return a contract error instead of panicking on overflow.",
+  },
+  {
+    id: "intermediate-step-conservation",
+    question: "Why does assert_conserved_over fail on an intermediate step even though the final balance matches?",
+    cause: "An intermediate state transition temporarily minted, burned, or omitted a holding account before a later step compensated.",
+    solution:
+      "Include every holding address (such as escrow or fee vaults) in the conserved total at each step.",
+  },
+  {
+    id: "negative-amount-panic",
+    question: "Why do negative amounts cause a panic before my conservation check runs?",
+    cause: "Soroban SAC transfer and mint reject negative i128 amounts at the host boundary.",
+    solution:
+      "Validate amount > 0 (or >= 0 where zero-value no-ops are allowed) at contract entry points.",
+  },
+] as const;
+
+const tokensApiOverview = [
+  {
+    symbol: "env.token()",
+    summary: "Deploys an isolated Stellar Asset Contract (SAC) test double bound to TestEnv.",
+  },
+  {
+    symbol: "token.address()",
+    summary: "Returns the Address of the SAC test double to pass into contracts under test.",
+  },
+  {
+    symbol: "token.mint(&to, amount)",
+    summary: "Mints amount (i128) tokens to to using test admin privileges.",
+  },
+  {
+    symbol: "token.transfer(&from, &to, amount)",
+    summary: "Transfers amount tokens from from to to while enforcing SAC authorization.",
+  },
+  {
+    symbol: "token.approve(&owner, &spender, amount, expiration_ledger)",
+    summary: "Approves spender to transfer up to amount on behalf of owner until expiration_ledger.",
+  },
+  {
+    symbol: "token.transfer_from(&spender, &from, &to, amount)",
+    summary: "Transfers amount from from to to using an existing allowance for spender.",
+  },
+  {
+    symbol: "token.balance(&id) / token.assert_balance(&id, expected)",
+    summary: "Reads an account's i128 balance or asserts it equals expected.",
+  },
+] as const;
+
 const tokensQuickStartSteps = [
   {
     title: "Add soroban-testkit as a dev-dependency",
@@ -779,6 +841,8 @@ export default function App() {
   const [checkedCoveragePreflight, setCheckedCoveragePreflight] = useState<Record<string, boolean>>({});
   // Issue #69: Troubleshooting FAQ for the auth module
   const [openAuthFaqIds, setOpenAuthFaqIds] = useState<Record<string, boolean>>({});
+  // Issue #57: Troubleshooting FAQ for the money module
+  const [openMoneyFaqIds, setOpenMoneyFaqIds] = useState<Record<string, boolean>>({});
   const [openCoreFaqIds, setOpenCoreFaqIds] = useState<Record<string, boolean>>({});
   // Issue #79: Advanced options for coverage workflow
   const [coverageAdvancedOpen, setCoverageAdvancedOpen] = useState(false);
@@ -1559,64 +1623,155 @@ export default function App() {
               </div>
             )}
             {selectedModuleData.name === "events" && (
-              <div className="module-doc-section">
-                <h3>API overview</h3>
-                <dl className="version-details">
-                  {eventsApiOverview.map((item) => (
-                    <Fragment key={item.symbol}>
-                      <dt>
-                        <code>{item.symbol}</code>
-                      </dt>
-                      <dd>{item.summary}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-                {renderModuleExample("events", "tests/events.rs", eventsExampleCode)}
-                <h3>Common failure modes</h3>
-                <ul>
-                  {eventsFailureModes.map((mode) => (
-                    <li key={mode.title}>
-                      <strong>{mode.title}:</strong> {mode.detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <>
+                <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {eventsApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                  {renderModuleExample("events", "tests/events.rs", eventsExampleCode)}
+                  <h3>Common failure modes</h3>
+                  <ul>
+                    {eventsFailureModes.map((mode) => (
+                      <li key={mode.title}>
+                        <strong>{mode.title}:</strong> {mode.detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Issue #59: Version and compatibility notes for the events module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet contract event encoding (<code>env.events().publish(...)</code> and XDR <code>ContractEvent</code>).</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Scoped to closure:</strong> <code>EventLog::capture(&amp;env, || &#123; ... &#125;)</code> records only events emitted during the closure; setup calls outside are excluded.</li>
+                    <li><strong>Cross-contract filtering:</strong> Cross-contract calls emit events under each emitting contract&apos;s address; use <code>log.for_contract(&amp;contract_id)</code> to isolate events.</li>
+                    <li><strong>Strict topic and payload typing:</strong> Soroban distinguishes <code>Symbol</code> (<code>symbol_short!</code> / <code>Symbol::new</code>) from <code>String</code> and requires exact XDR numeric widths (<code>i128</code> vs <code>u128</code>).</li>
+                  </ul>
+                </div>
+              </>
             )}
             {selectedModuleData.name === "money" && (
-              <div className="module-doc-section">
-                <h3>API overview</h3>
-                <dl className="version-details">
-                  {moneyApiOverview.map((item) => (
-                    <Fragment key={item.symbol}>
-                      <dt>
-                        <code>{item.symbol}</code>
-                      </dt>
-                      <dd>{item.summary}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-                <h3>Quick-start walkthrough</h3>
-                <ol>
-                  {moneyQuickStartSteps.map((step) => (
-                    <li key={step.title}>
-                      <strong>{step.title}:</strong> {step.detail}
-                    </li>
-                  ))}
-                </ol>
-                {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
-                <h3>Common failure modes</h3>
-                <ul>
-                  {moneyFailureModes.map((mode) => (
-                    <li key={mode.title}>
-                      <strong>{mode.title}:</strong> {mode.detail}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <>
+                <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {moneyApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
+                  <h3>Quick-start walkthrough</h3>
+                  <ol>
+                    {moneyQuickStartSteps.map((step) => (
+                      <li key={step.title}>
+                        <strong>{step.title}:</strong> {step.detail}
+                      </li>
+                    ))}
+                  </ol>
+                  {renderModuleExample("money", "tests/money.rs", moneyExampleCode)}
+                  <h3>Common failure modes</h3>
+                  <ul>
+                    {moneyFailureModes.map((mode) => (
+                      <li key={mode.title}>
+                        <strong>{mode.title}:</strong> {mode.detail}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {/* Issue #55: Version and compatibility notes for the money module */}
+                <div className="module-version-info">
+                  <h3>Version and compatibility</h3>
+                  <dl className="version-details">
+                    <dt>Current version</dt>
+                    <dd>Soroban SDK 27.0.x and later</dd>
+
+                    <dt>Minimum Rust version</dt>
+                    <dd>Rust 1.84 or later with wasm32v1-none target</dd>
+
+                    <dt>Stellar network support</dt>
+                    <dd>Compatible with Testnet and Mainnet <code>i128</code> / <code>u128</code> arithmetic and Stellar Asset Contract (SEP-41) balance semantics.</dd>
+                  </dl>
+                  <h3>Known considerations</h3>
+                  <ul>
+                    <li><strong>Signed <code>i128</code> token balances:</strong> Soroban SAC balances use signed <code>i128</code>; adversarial boundary inputs test <code>0</code>, <code>1</code>, <code>i128::MAX</code>, and overflow boundaries.</li>
+                    <li><strong>Rounding and dust:</strong> Integer division in fee splits or pro-rata payouts can leave dust; <code>Conservation::new(initial, after).assert_holds()</code> catches leaked or created value.</li>
+                    <li><strong>Multi-step workflows:</strong> Use <code>assert_conserved_over</code> for multi-step lifecycles such as escrow releases or vesting claims so invariants hold after every transition.</li>
+                  </ul>
+                </div>
+                {/* Issue #57: Troubleshooting FAQ for the money module */}
+                <div className="module-doc-section">
+                  <h3>Troubleshooting FAQ</h3>
+                  <div className="auth-faq-list">
+                    {moneyTroubleshootingFaq.map((item) => {
+                      const isOpen = openMoneyFaqIds[item.id] ?? false;
+                      return (
+                        <div key={item.id} className="guide-card">
+                          <div className="guide-header">
+                            <button
+                              type="button"
+                              className="guide-toggle"
+                              aria-expanded={isOpen}
+                              aria-controls={`money-faq-panel-${item.id}`}
+                              onClick={() =>
+                                setOpenMoneyFaqIds((prev) => ({ ...prev, [item.id]: !isOpen }))
+                              }
+                            >
+                              {item.question}
+                            </button>
+                          </div>
+                          {isOpen && (
+                            <div id={`money-faq-panel-${item.id}`} className="guide-panel">
+                              <p>
+                                <strong>Cause:</strong> {item.cause}
+                              </p>
+                              <p>
+                                <strong>Solution:</strong> {item.solution}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
             {selectedModuleData.name === "tokens" && (
               <>
                 <div className="module-doc-section">
+                  <h3>API overview</h3>
+                  <dl className="version-details">
+                    {tokensApiOverview.map((item) => (
+                      <Fragment key={item.symbol}>
+                        <dt>
+                          <code>{item.symbol}</code>
+                        </dt>
+                        <dd>{item.summary}</dd>
+                      </Fragment>
+                    ))}
+                  </dl>
                   <h3>Quick-start walkthrough</h3>
                   <ol>
                     {tokensQuickStartSteps.map((step) => (

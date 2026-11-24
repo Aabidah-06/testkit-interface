@@ -2,6 +2,16 @@
 
 `soroban_testkit::tokens` provides Stellar Asset Contract (SAC) test doubles for deterministic minting, transfers, allowances, and balance assertions in contract tests.
 
+## API overview
+
+- `env.token()` — deploys an isolated Stellar Asset Contract (SAC) test double bound to `TestEnv`.
+- `token.address()` — returns the `Address` of the SAC test double to pass into contracts under test.
+- `token.mint(&to, amount)` — mints `amount` (`i128`) tokens to `to` using test admin privileges.
+- `token.transfer(&from, &to, amount)` — transfers `amount` tokens from `from` to `to` while enforcing SAC authorization.
+- `token.approve(&owner, &spender, amount, expiration_ledger)` — approves `spender` to transfer up to `amount` on behalf of `owner` until `expiration_ledger`.
+- `token.transfer_from(&spender, &from, &to, amount)` — transfers `amount` from `from` to `to` using an existing allowance for `spender`.
+- `token.balance(&id)` / `token.assert_balance(&id, expected)` — reads an account's `i128` balance or asserts it equals `expected`.
+
 ## Quick start
 
 1. Add the crate: `cargo add --dev soroban-testkit`.
