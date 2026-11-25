@@ -1,4 +1,4 @@
-import { Fragment, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   buildCommand,
   formatCommandLine,
@@ -25,6 +25,7 @@ const navSections = [
   { id: "limits-reference", label: "Limits reference" },
 ] as const;
 const navSectionIds = navSections.map((section) => section.id);
+const COPY_COMMENTS_PREFERENCE_KEY = "testkit.copy-with-comments";
 
 // Which CLI workflows are most useful for each module (#130). Keyed by module
 // name so adding a module without a mapping fails type-checking.
@@ -680,7 +681,7 @@ const coverageExamples = [
   {
     title: "Machine-readable output",
     description: "Generate LCOV format for CI/CD integration",
-    command: "soroban-testkit coverage . --format lcov --open",
+    command: "soroban-testkit coverage . --format lcov",
   },
   {
     title: "Terminal summary only",
@@ -694,7 +695,7 @@ function summarizeConfiguration(options: CommandOptions): SummaryRow[] {
   if (options.path) rows.push({ label: "Path", value: options.path });
   if (options.command === "coverage" && options.format) {
     rows.push({ label: "Format", value: options.format });
-    if (options.open) rows.push({ label: "Open report", value: "Yes" });
+    if (options.format === "html" && options.open) rows.push({ label: "Open report", value: "Yes" });
   }
   if (options.command === "limits") {
     rows.push({ label: "Function", value: options.fn });
@@ -796,7 +797,8 @@ export default function App() {
   const [copied, setCopied] = useState(false);
   const [copiedStep, setCopiedStep] = useState<number | null>(null);
   const [copiedModuleExample, setCopiedModuleExample] = useState<string | null>(null);
-  const [copiedWithComments, setCopiedWithComments] = useState(false);
+  const [includeComments, setIncludeComments] = useState(true);
+  const [copiedCommentsMode, setCopiedCommentsMode] = useState<"with" | "without" | null>(null);
   const [copiedAsScript, setCopiedAsScript] = useState(false);
   // Issue #143: Command history for restore functionality
   const [commandHistory, setCommandHistory] = useState<CommandOptions[]>([]);
@@ -833,6 +835,14 @@ export default function App() {
   const [configB, setConfigB] = useState<CommandOptions | null>(null);
   const [coverageGuideOpen, setCoverageGuideOpen] = useState(false);
   const [auditGuideOpen, setAuditGuideOpen] = useState(false);
+  const auditGuideScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const top = auditGuideScroll.current;
+    auditGuideScroll.current = null;
+    if (top !== null && window.scrollY !== top) {
+      window.scrollTo({ top, behavior: "instant" });
+    }
+  }, [auditGuideOpen]);
   const [checkedPrerequisites, setCheckedPrerequisites] = useState<Record<string, boolean>>({});
   const [installFaqOpen, setInstallFaqOpen] = useState(false);
   const [auditWarningsGuideOpen, setAuditWarningsGuideOpen] = useState(false);
@@ -892,6 +902,8 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   // #266 — incremented when the "jump to Audit output" shortcut is pressed
   const [auditOutputFocusRequest, setAuditOutputFocusRequest] = useState(0);
+  // #356 — incremented when the "jump to Coverage output" shortcut is pressed
+  const [coverageOutputFocusRequest, setCoverageOutputFocusRequest] = useState(0);
   
   // Prevent unused variable warnings
   void _featureMatrixOpen;
@@ -908,6 +920,16 @@ export default function App() {
           event.preventDefault();
           document.getElementById("module-search")?.focus();
         }
+        return;
+      }
+
+      // #356 — Ctrl/Cmd + Shift + C selects Coverage and jumps directly to
+      // the generated command output. The chord is allowed from fields too,
+      // matching the existing Audit shortcut behavior.
+      if (event.shiftKey && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        setCommand("coverage");
+        setCoverageOutputFocusRequest((request) => request + 1);
         return;
       }
 
@@ -949,7 +971,7 @@ export default function App() {
   const changeCommand = (next: CommandName) => {
     setCommand(next);
     setCopied(false);
-    setCopiedWithComments(false);
+    setCopiedCommentsMode(null);
     setCopiedAsScript(false);
     setAnnouncement("");
   };
@@ -976,6 +998,17 @@ export default function App() {
   useEffect(() => {
     generatedRef.current = generated;
   }, [generated]);
+
+  useEffect(() => {
+    try {
+      const savedPreference = window.localStorage.getItem(COPY_COMMENTS_PREFERENCE_KEY);
+      if (savedPreference === "true" || savedPreference === "false") {
+        setIncludeComments(savedPreference === "true");
+      }
+    } catch {
+      setValidationError("Could not load your saved comments preference. Comments will remain enabled for this visit.");
+    }
+  }, []);
 
 
   const toggleAdvancedEditor = () => {
@@ -1184,19 +1217,33 @@ export default function App() {
   // Issue #144: Copy command with explanatory comments
   const copyWithComments = async () => {
     const requested = generated;
-    const commented = formatCommandWithComments(options);
+    const includeCommentsForCopy = includeComments;
+    const commandToCopy = includeCommentsForCopy ? formatCommandWithComments(options) : generated;
     try {
-      await copyToClipboard(commented);
+      await copyToClipboard(commandToCopy);
       if (generatedRef.current !== requested) return;
       saveToHistory(); // Save to history when copying
-      setCopiedWithComments(true);
-      setAnnouncement("Command with comments copied to clipboard");
+      setCopiedCommentsMode(includeCommentsForCopy ? "with" : "without");
+      setAnnouncement(
+        includeCommentsForCopy
+          ? "Command with comments copied to clipboard"
+          : "Command without comments copied to clipboard",
+      );
       window.setTimeout(() => {
-        setCopiedWithComments(false);
+        setCopiedCommentsMode(null);
         setAnnouncement("");
       }, 3000);
     } catch {
       if (generatedRef.current === requested) showCopyFailure();
+    }
+  };
+
+  const updateIncludeComments = (checked: boolean) => {
+    setIncludeComments(checked);
+    try {
+      window.localStorage.setItem(COPY_COMMENTS_PREFERENCE_KEY, String(checked));
+    } catch {
+      setValidationError("Could not save your comments preference. It will reset when you leave.");
     }
   };
 
@@ -1352,8 +1399,27 @@ export default function App() {
     setAnnouncement("Jumped to the Audit command output panel");
   }, [auditOutputFocusRequest]);
 
-  // #102 — validate required fields and announce errors
+  // #356 — Expected behavior: Ctrl/Cmd+Shift+C switches to Coverage when
+  // necessary, then focuses and scrolls the shared generated-output region.
+  useEffect(() => {
+    if (coverageOutputFocusRequest === 0) return;
+    const panel = auditOutputPanelRef.current;
+    if (!panel) return;
+    panel.focus();
+    if (typeof panel.scrollIntoView === "function") {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setAnnouncement("Jumped to the Coverage command output panel");
+  }, [coverageOutputFocusRequest]);
+
+  // #102, #350 — validate required fields and announce actionable errors.
   const validateAndCopy = async () => {
+    if (command === "audit" && !path.trim()) {
+      setValidationError(
+        "Audit source path is required. Enter the contract source directory (for example, ./src).",
+      );
+      return;
+    }
     if (!path.trim()) {
       setValidationError("Project or contract path is required.");
       return;
@@ -2622,12 +2688,18 @@ export default function App() {
               <label className="check">
                 <span className="check-content">
                   {/* #100 — inline help text for open checkbox */}
-                  <input type="checkbox" checked={open} onChange={(event) => setOpen(event.target.checked)} aria-describedby="open-help" />
+                  <input
+                    type="checkbox"
+                    checked={format === "html" && open}
+                    disabled={format !== "html"}
+                    onChange={(event) => setOpen(event.target.checked)}
+                    aria-describedby="open-help"
+                  />
                   <span>Open report when complete</span>
                 </span>
                 <span className="badge badge-optional">Optional</span>
                 <div id="open-help" className="field-help">
-                  Automatically launches the HTML report in your default browser after generation.
+                  Available for HTML reports only. Opens the report in your default browser after generation.
                 </div>
               </label>
             </>
@@ -2700,7 +2772,7 @@ export default function App() {
             <label className="check">
               <span className="check-content">
                 {/* #100 — inline help text for strict checkbox */}
-                <input type="checkbox" checked={strict} onChange={(event) => setStrict(event.target.checked)} aria-describedby="strict-help" />
+                <input type="checkbox" checked={strict} onChange={(event) => setStrict(event.target.checked)} aria-label="Fail on warnings (Audit strict mode)" aria-describedby="strict-help" />
                 <span>Fail on warnings</span>
               </span>
               <span className="badge badge-optional">Optional</span>
@@ -2790,13 +2862,35 @@ export default function App() {
 
           {/* Issue #144 & #145: Additional copy options */}
           <div className="copy-options">
+            <label className="copy-comments-preference">
+              <input
+                type="checkbox"
+                checked={includeComments}
+                onChange={(event) => updateIncludeComments(event.currentTarget.checked)}
+              />
+              Include explanatory comments
+            </label>
             <button 
               type="button" 
               className="button secondary" 
               onClick={copyWithComments}
-              aria-label="Copy command with explanatory comments"
+              aria-label={
+                copiedCommentsMode === "with"
+                  ? "Command with explanatory comments copied"
+                  : copiedCommentsMode === "without"
+                    ? "Command without explanatory comments copied"
+                    : includeComments
+                      ? "Copy command with explanatory comments"
+                      : "Copy command without explanatory comments"
+              }
             >
-              {copiedWithComments ? "Copied with comments" : "Copy with comments"}
+              {copiedCommentsMode === "with"
+                ? "Copied with comments"
+                : copiedCommentsMode === "without"
+                  ? "Copied without comments"
+                  : includeComments
+                    ? "Copy with comments"
+                    : "Copy without comments"}
             </button>
             <button 
               type="button" 
@@ -2808,64 +2902,74 @@ export default function App() {
             </button>
           </div>
 
-          {/* #147 — session-only command history */}
-          {commandHistory.length > 0 && (
-            <section className="command-history" aria-labelledby="command-history-heading">
-              <div className="command-history-header">
-                <h3 id="command-history-heading">Command history</h3>
-                <button
-                  type="button"
-                  className="history-toggle"
-                  aria-expanded={historyOpen}
-                  onClick={() => setHistoryOpen(!historyOpen)}
-                >
-                  {historyOpen ? "Hide" : "Show"} ({commandHistory.length})
-                </button>
-              </div>
-              {historyOpen && (
-                <div className="command-history-list" role="log" aria-live="polite">
-                  {commandHistory.slice().reverse().map((entry, index) => {
-                    const cmd = buildCommand(entry);
-                    return (
-                      <div key={index} className="command-history-item">
-                        <span className="history-timestamp">
-                          Entry {commandHistory.length - index}
-                        </span>
-                        <code className="history-command">{cmd}</code>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await copyToClipboard(cmd);
-                              setAnnouncement(`History command ${commandHistory.length - index} copied`);
-                              window.setTimeout(() => setAnnouncement(""), 1600);
-                            } catch {
-                              showCopyFailure();
-                            }
-                          }}
-                          aria-label={`Copy history command ${commandHistory.length - index}`}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    );
-                  })}
+          {/* #147, #348 — keep Command History discoverable before the first copy. */}
+          <section className="command-history" aria-labelledby="command-history-heading">
+            <div className="command-history-header">
+              <h3 id="command-history-heading">Command history</h3>
+              <button
+                type="button"
+                className="history-toggle"
+                aria-expanded={historyOpen}
+                aria-controls="command-history-list"
+                onClick={() => setHistoryOpen(!historyOpen)}
+              >
+                {historyOpen ? "Hide" : "Show"} ({commandHistory.length})
+              </button>
+            </div>
+            {historyOpen && (
+              <div
+                className="command-history-list"
+                id="command-history-list"
+                role="log"
+                aria-live="polite"
+              >
+                {commandHistory.length === 0 && (
+                  <p className="command-history-empty">
+                    No commands yet. Copy a generated command to add it to this session history.
+                  </p>
+                )}
+                {commandHistory.slice().reverse().map((entry, index) => {
+                  const cmd = buildCommand(entry);
+                  return (
+                    <div key={index} className="command-history-item">
+                      <span className="history-timestamp">
+                        Entry {commandHistory.length - index}
+                      </span>
+                      <code className="history-command">{cmd}</code>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await copyToClipboard(cmd);
+                            setAnnouncement(`History command ${commandHistory.length - index} copied`);
+                            window.setTimeout(() => setAnnouncement(""), 1600);
+                          } catch {
+                            showCopyFailure();
+                          }
+                        }}
+                        aria-label={`Copy history command ${commandHistory.length - index}`}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  );
+                })}
+                {commandHistory.length > 0 && (
                   <button
                     type="button"
                     className="button secondary"
                     onClick={() => {
                       setCommandHistory([]);
-                      setHistoryOpen(false);
                       setAnnouncement("Command history cleared");
                       window.setTimeout(() => setAnnouncement(""), 1600);
                     }}
                   >
                     Clear history
                   </button>
-                </div>
-              )}
-            </section>
-          )}
+                )}
+              </div>
+            )}
+          </section>
 
           <div className="advanced-command-block">
             <button type="button" className="button secondary" onClick={toggleAdvancedEditor}>
@@ -2883,12 +2987,26 @@ export default function App() {
                     rows={8}
                     onChange={(event) => setAdvancedCommand(event.target.value)}
                     aria-label="Advanced command arguments"
-                    aria-describedby={command === "limits" ? "limits-advanced-line-count" : undefined}
+                    aria-describedby={
+                      command === "limits"
+                        ? "limits-advanced-line-count"
+                        : command === "audit"
+                        ? "audit-editor-count"
+                        : undefined
+                    }
                   />
                 </label>
                 {command === "limits" && (
                   <p id="limits-advanced-line-count" className="field-help">
                     {advancedCommandLineCount} {advancedCommandLineCount === 1 ? "line" : "lines"}
+                  </p>
+                )}
+                {/* #351 — Expected behavior: while the Audit multiline editor is open,
+                    show both character and line counts so users can gauge pasted commands
+                    without altering the command text itself. */}
+                {command === "audit" && (
+                  <p className="advanced-editor-count" id="audit-editor-count" aria-live="polite">
+                    {advancedCommand.length} characters · {advancedCommand.split("\n").length} lines
                   </p>
                 )}
                 <button type="button" className="button primary" onClick={applyAdvancedCommand}>
@@ -2962,7 +3080,8 @@ export default function App() {
                     <span className="check-content">
                       <input
                         type="checkbox"
-                        checked={configB.open}
+                        checked={configB.format === "html" && configB.open}
+                        disabled={configB.format !== "html"}
                         onChange={(event) => updateConfigB({ open: event.target.checked })}
                       />
                       <span>Open report when complete</span>
@@ -3003,6 +3122,7 @@ export default function App() {
                     <input
                       type="checkbox"
                       checked={configB.strict}
+                      aria-label="Fail on warnings (configuration B Audit strict mode)"
                       onChange={(event) => updateConfigB({ strict: event.target.checked })}
                     />
                     <span>Fail on warnings</span>
@@ -3199,7 +3319,11 @@ export default function App() {
                 className="guide-toggle"
                 aria-expanded={auditGuideOpen}
                 aria-controls="audit-guide-panel"
-                onClick={() => setAuditGuideOpen((open) => !open)}
+                onClick={() => {
+                  // Keep the viewport at the same page offset when the checklist changes height.
+                  auditGuideScroll.current = window.scrollY;
+                  setAuditGuideOpen((open) => !open);
+                }}
               >
                 {auditGuideOpen ? "Hide tutorial" : "Show tutorial"}
               </button>
