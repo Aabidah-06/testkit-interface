@@ -2547,6 +2547,34 @@ describe("Module-card disclosures (#337)", () => {
 });
 
 
+describe("Papytee assigned regressions (#350, #356)", () => {
+  it("shows an Audit-specific required path error when the source path is empty (#350)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+
+    const pathInput = screen.getByRole("textbox", { name: "Project or contract path" });
+    fireEvent.change(pathInput, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Audit source path is required. Enter the contract source directory (for example, ./src).",
+    );
+  });
+
+  it("selects Coverage and focuses its generated output with Ctrl+Shift+C (#356)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "audit" }));
+
+    fireEvent.keyDown(document.body, { key: "C", ctrlKey: true, shiftKey: true });
+
+    expect(screen.getByRole("button", { name: "coverage" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("region", { name: "Generated command output" })).toHaveFocus();
+    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage");
+    expect(screen.getByText("Jumped to the Coverage command output panel")).toBeInTheDocument();
+  });
+});
+
+
 describe("Assigned command-builder regressions (#346, #348, #351)", () => {
   it("emits --strict only when Audit strict mode is enabled (#346)", () => {
     render(<App />);

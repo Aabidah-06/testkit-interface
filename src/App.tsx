@@ -901,6 +901,8 @@ export default function App() {
   const [historyOpen, setHistoryOpen] = useState(false);
   // #266 — incremented when the "jump to Audit output" shortcut is pressed
   const [auditOutputFocusRequest, setAuditOutputFocusRequest] = useState(0);
+  // #356 — incremented when the "jump to Coverage output" shortcut is pressed
+  const [coverageOutputFocusRequest, setCoverageOutputFocusRequest] = useState(0);
   
   // Prevent unused variable warnings
   void _featureMatrixOpen;
@@ -917,6 +919,16 @@ export default function App() {
           event.preventDefault();
           document.getElementById("module-search")?.focus();
         }
+        return;
+      }
+
+      // #356 — Ctrl/Cmd + Shift + C selects Coverage and jumps directly to
+      // the generated command output. The chord is allowed from fields too,
+      // matching the existing Audit shortcut behavior.
+      if (event.shiftKey && event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        setCommand("coverage");
+        setCoverageOutputFocusRequest((request) => request + 1);
         return;
       }
 
@@ -1386,8 +1398,27 @@ export default function App() {
     setAnnouncement("Jumped to the Audit command output panel");
   }, [auditOutputFocusRequest]);
 
-  // #102 — validate required fields and announce errors
+  // #356 — Expected behavior: Ctrl/Cmd+Shift+C switches to Coverage when
+  // necessary, then focuses and scrolls the shared generated-output region.
+  useEffect(() => {
+    if (coverageOutputFocusRequest === 0) return;
+    const panel = auditOutputPanelRef.current;
+    if (!panel) return;
+    panel.focus();
+    if (typeof panel.scrollIntoView === "function") {
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    setAnnouncement("Jumped to the Coverage command output panel");
+  }, [coverageOutputFocusRequest]);
+
+  // #102, #350 — validate required fields and announce actionable errors.
   const validateAndCopy = async () => {
+    if (command === "audit" && !path.trim()) {
+      setValidationError(
+        "Audit source path is required. Enter the contract source directory (for example, ./src).",
+      );
+      return;
+    }
     if (!path.trim()) {
       setValidationError("Project or contract path is required.");
       return;

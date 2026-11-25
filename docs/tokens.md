@@ -48,6 +48,16 @@
 - **`allowance exceeded or missing approval`**: `token.transfer_from` requires a prior `token.approve(&owner, &spender, amount, expiration_ledger)` covering the transfer amount that has not expired.
 - **`authorization error on transfer`**: unlike `token.mint` (which uses test admin privileges), `token.transfer` and `token.approve` enforce SAC authorization. Mock auth for the sender or owner when testing without `mock_all_auths`.
 
+## Related command-builder workflows
+
+When token tests move from library setup to CLI verification, use the command-builder workflows documented in the [README](../README.md#workflow-testing--verification):
+
+- **Coverage** — measure which token-contract test paths execute and choose HTML, LCOV, or text output.
+- **Limits** — probe resource ceilings for token-heavy entry points such as batched transfers or minting flows.
+- **Audit** — scan contract sources for authorization, arithmetic, and TTL risks that commonly matter in token integrations.
+
+These are CLI workflows; the `tokens` API on this page remains a Rust test module.
+
 ## Version and compatibility
 
 - **Current version**: Soroban SDK 27.0.x and later.
