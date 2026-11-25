@@ -1148,10 +1148,17 @@ export default function App() {
 
   const applyAdvancedCommand = () => {
     const tokens = advancedCommand.match(/"[^"]+"|'[^']+'|[^\s]+/g) ?? [];
-    if (tokens.length === 0) return;
+    if (tokens.length === 0) {
+      setValidationError("Enter a multiline command before applying it.");
+      return;
+    }
 
     const [tool, selectedCommand, ...args] = tokens;
-    if (tool !== "soroban-testkit") return;
+    if (tool !== "soroban-testkit") {
+      setValidationError("Multiline commands must start with soroban-testkit.");
+      return;
+    }
+    setValidationError("");
 
     if (selectedCommand === "coverage") changeCommand("coverage");
     if (selectedCommand === "limits") changeCommand("limits");
@@ -1181,6 +1188,12 @@ export default function App() {
         setPath(stripQuotes(token));
       }
     }
+
+    // #334: the editor is used from a screen reader's virtual cursor, where no
+    // focus or visible-only state change is announced. Use the polite live
+    // region so applying the command is confirmed to assistive technology.
+    setAnnouncement("Multiline command applied");
+    window.setTimeout(() => setAnnouncement(""), 3000);
   };
 
   // Issue #34 — when the clipboard is blocked, select the generated command so
@@ -2124,6 +2137,15 @@ export default function App() {
                   placeholder="Search modules by name or description… (press /)"
                   value={moduleFilter}
                   onChange={(event) => setModuleFilter(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      // #336: native search inputs blur or clear inconsistently.
+                      // Use the same reset as the empty-state "Reset filters"
+                      // action and keep focus in the field for continued typing.
+                      event.preventDefault();
+                      resetModuleFilter();
+                    }
+                  }}
                   aria-label="Search modules by name or description"
                 />
                 {moduleFilter && (
@@ -3005,48 +3027,66 @@ export default function App() {
           </section>
 
           <div className="advanced-command-block">
-            <button type="button" className="button secondary" onClick={toggleAdvancedEditor}>
+            <button
+              type="button"
+              className="button secondary"
+              onClick={toggleAdvancedEditor}
+              aria-expanded={multilineEditor}
+              aria-controls="advanced-command-panel"
+            >
               {multilineEditor ? "Hide advanced editor" : "Advanced arguments"}
             </button>
-            {multilineEditor && (
-              <>
-                <label>
-                  <div className="field-header">
-                    <span>Advanced command editor</span>
-                    <span className="badge badge-optional">Multiline</span>
-                  </div>
-                  <textarea
-                    value={advancedCommand}
-                    rows={8}
-                    onChange={(event) => setAdvancedCommand(event.target.value)}
-                    aria-label="Advanced command arguments"
-                    aria-describedby={
-                      command === "limits"
-                        ? "limits-advanced-line-count"
-                        : command === "audit"
-                        ? "audit-editor-count"
-                        : undefined
-                    }
-                  />
+            {/* #334: keep the panel mounted so aria-controls always resolves,
+                and give the textarea a real label, visible help, and a stable
+                place in the virtual cursor reading order. The accessible name
+                now comes from the real <label>, matching the visible text, so
+                no separate aria-label is set (#334). */}
+            <div id="advanced-command-panel" hidden={!multilineEditor}>
+              <div className="field-header">
+                <label id="advanced-command-editor-label" htmlFor="advanced-command-editor">
+                  Advanced command editor
                 </label>
-                {command === "limits" && (
-                  <p id="limits-advanced-line-count" className="field-help">
-                    {advancedCommandLineCount} {advancedCommandLineCount === 1 ? "line" : "lines"}
-                  </p>
-                )}
-                {/* #351 — Expected behavior: while the Audit multiline editor is open,
-                    show both character and line counts so users can gauge pasted commands
-                    without altering the command text itself. */}
-                {command === "audit" && (
-                  <p className="advanced-editor-count" id="audit-editor-count" aria-live="polite">
-                    {advancedCommand.length} characters · {advancedCommand.split("\n").length} lines
-                  </p>
-                )}
-                <button type="button" className="button primary" onClick={applyAdvancedCommand}>
-                  Apply multiline command
-                </button>
-              </>
-            )}
+                <span className="badge badge-optional">Multiline</span>
+              </div>
+              {command !== "limits" && command !== "audit" && (
+                <p id="advanced-command-help" className="field-help">
+                  Enter a single command across multiple lines. End wrapped lines with a backslash (\).
+                  Quote paths that contain spaces. Apply updates the generated command.
+                </p>
+              )}
+              <textarea
+                id="advanced-command-editor"
+                value={advancedCommand}
+                rows={8}
+                onChange={(event) => {
+                  setAdvancedCommand(event.target.value);
+                  if (event.target.value.trim()) setValidationError("");
+                }}
+                aria-describedby={
+                  command === "limits"
+                    ? "limits-advanced-line-count"
+                    : command === "audit"
+                    ? "audit-editor-count"
+                    : "advanced-command-help"
+                }
+              />
+              {command === "limits" && (
+                <p id="limits-advanced-line-count" className="field-help">
+                  {advancedCommandLineCount} {advancedCommandLineCount === 1 ? "line" : "lines"}
+                </p>
+              )}
+              {/* #351 — Expected behavior: while the Audit multiline editor is open,
+                  show both character and line counts so users can gauge pasted commands
+                  without altering the command text itself. */}
+              {command === "audit" && (
+                <p className="advanced-editor-count" id="audit-editor-count" aria-live="polite">
+                  {advancedCommand.length} characters · {advancedCommand.split("\n").length} lines
+                </p>
+              )}
+              <button type="button" className="button primary" onClick={applyAdvancedCommand}>
+                Apply multiline command
+              </button>
+            </div>
           </div>
 
         {compareOpen && configB && (

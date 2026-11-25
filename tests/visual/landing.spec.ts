@@ -91,3 +91,42 @@ test.describe("responsive layout enhancements", () => {
     await expect(commands).toHaveScreenshot("commands-landscape-phone.png");
   });
 });
+
+test.describe("landscape phone command form overflow (#333)", () => {
+  for (const viewport of [
+    { width: 541, height: 600 },
+    { width: 800, height: 480 },
+    { width: 900, height: 600 },
+  ]) {
+    test(`keeps every command control on screen at ${viewport.width}px x ${viewport.height}px`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await page.getByRole("button", { name: "audit" }).click();
+      await page.getByRole("button", { name: "Advanced arguments" }).click();
+      await page.evaluate(() => window.scrollTo({ left: 0, top: 0, behavior: "instant" }));
+
+      const result = await page.evaluate((width) => {
+        const offenders: string[] = [];
+        document
+          .querySelectorAll<HTMLElement>("main a[href], main button, main input, main select, main textarea")
+          .forEach((element) => {
+            const rect = element.getBoundingClientRect();
+            if (rect.width === 0 && rect.height === 0) return;
+            if (rect.right > width + 0.5 || rect.left < -0.5) {
+              offenders.push(
+                `${element.tagName.toLowerCase()} "${(element.getAttribute("aria-label") || element.textContent || "").trim().slice(0, 40)}"`,
+              );
+            }
+          });
+        return {
+          horizontalOverflow:
+            document.documentElement.scrollWidth > document.documentElement.clientWidth,
+          offenders,
+          x: window.scrollX,
+        };
+      }, viewport.width);
+
+      expect(result).toEqual({ horizontalOverflow: false, offenders: [], x: 0 });
+    });
+  }
+});

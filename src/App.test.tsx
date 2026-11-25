@@ -449,6 +449,34 @@ describe("Module filter and empty-state layout (#188)", () => {
     expect(screen.getByRole("heading", { name: "ttl", level: 3 })).toBeInTheDocument();
   });
 
+  it("clears the search on Escape without blurring the input (#336)", () => {
+    render(<App />);
+    const filterInput = screen.getByLabelText("Search modules by name or description");
+    fireEvent.change(filterInput, { target: { value: "ledger" } });
+    expect(screen.queryByRole("heading", { name: "tokens", level: 3 })).not.toBeInTheDocument();
+
+    const notCancelled = fireEvent.keyDown(filterInput, { key: "Escape" });
+
+    expect(notCancelled).toBe(false);
+    expect(filterInput).toHaveValue("");
+    expect(filterInput).toHaveFocus();
+    expect(screen.getByRole("heading", { name: "tokens", level: 3 })).toBeInTheDocument();
+  });
+
+  it("clears the category filter on Escape just like Reset filters (#336)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Security" }));
+    expect(screen.getByRole("button", { name: "Security" })).toHaveAttribute("aria-pressed", "true");
+
+    const filterInput = screen.getByLabelText("Search modules by name or description");
+    filterInput.focus();
+    fireEvent.keyDown(filterInput, { key: "Escape" });
+
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Security" })).toHaveAttribute("aria-pressed", "false");
+    expect(filterInput).toHaveFocus();
+  });
+
   it("explains the empty state and returns focus to the search box on reset (#123)", () => {
     render(<App />);
     const filterInput = screen.getByLabelText("Filter modules");
@@ -660,7 +688,7 @@ describe("Audit command output shortcut (#266)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "audit" }));
     fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
-    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    const editor = screen.getByRole("textbox", { name: "Advanced command editor" });
     editor.focus();
 
     fireEvent.keyDown(editor, { key: "A", ctrlKey: true, shiftKey: true });
@@ -924,7 +952,7 @@ describe("Command builder enhancements", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
 
-    const textarea = screen.getByLabelText("Advanced command arguments");
+    const textarea = screen.getByLabelText("Advanced command editor");
     fireEvent.change(textarea, {
       target: { value: "soroban-testkit audit ./src --strict" },
     });
@@ -935,12 +963,39 @@ describe("Command builder enhancements", () => {
     );
   });
 
+  it("exposes a labelled, described, and correctly collapsed multiline editor (#334)", () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: "Advanced arguments" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-controls", "advanced-command-panel");
+    expect(document.getElementById("advanced-command-panel")).toHaveAttribute("hidden");
+
+    fireEvent.click(toggle);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(document.getElementById("advanced-command-panel")).not.toHaveAttribute("hidden");
+    const textarea = screen.getByRole("textbox", { name: "Advanced command editor" });
+    expect(textarea).toHaveAttribute("aria-describedby", "advanced-command-help");
+    expect(document.getElementById("advanced-command-help")).toHaveTextContent(/backslash/i);
+  });
+
+  it("announces an applied multiline command through the polite live region (#334)", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
+    const textarea = screen.getByLabelText("Advanced command editor");
+    fireEvent.change(textarea, { target: { value: "soroban-testkit audit ./src --strict" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply multiline command" }));
+
+    expect(screen.getByText("Multiline command applied")).toHaveAttribute("aria-live", "polite");
+  });
+
   it("counts the draft lines in the Limits editor without applying the draft", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "limits" }));
     fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
 
-    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    const editor = screen.getByRole("textbox", { name: "Advanced command editor" });
     const command = screen.getByTestId("command-output");
     const originalCommand = command.textContent;
     expect(editor).toHaveAccessibleDescription(/\d+ lines?/);
@@ -2696,7 +2751,7 @@ describe("Assigned command-builder regressions (#346, #348, #351)", () => {
     fireEvent.click(screen.getByRole("button", { name: "audit" }));
     fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
 
-    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    const editor = screen.getByRole("textbox", { name: "Advanced command editor" });
     fireEvent.change(editor, { target: { value: "soroban-testkit audit ./src\n--strict" } });
 
     expect(screen.getByText("36 characters · 2 lines")).toBeVisible();
