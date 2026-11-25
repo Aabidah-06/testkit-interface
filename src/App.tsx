@@ -2870,64 +2870,74 @@ export default function App() {
             </button>
           </div>
 
-          {/* #147 — session-only command history */}
-          {commandHistory.length > 0 && (
-            <section className="command-history" aria-labelledby="command-history-heading">
-              <div className="command-history-header">
-                <h3 id="command-history-heading">Command history</h3>
-                <button
-                  type="button"
-                  className="history-toggle"
-                  aria-expanded={historyOpen}
-                  onClick={() => setHistoryOpen(!historyOpen)}
-                >
-                  {historyOpen ? "Hide" : "Show"} ({commandHistory.length})
-                </button>
-              </div>
-              {historyOpen && (
-                <div className="command-history-list" role="log" aria-live="polite">
-                  {commandHistory.slice().reverse().map((entry, index) => {
-                    const cmd = buildCommand(entry);
-                    return (
-                      <div key={index} className="command-history-item">
-                        <span className="history-timestamp">
-                          Entry {commandHistory.length - index}
-                        </span>
-                        <code className="history-command">{cmd}</code>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              await copyToClipboard(cmd);
-                              setAnnouncement(`History command ${commandHistory.length - index} copied`);
-                              window.setTimeout(() => setAnnouncement(""), 1600);
-                            } catch {
-                              showCopyFailure();
-                            }
-                          }}
-                          aria-label={`Copy history command ${commandHistory.length - index}`}
-                        >
-                          Copy
-                        </button>
-                      </div>
-                    );
-                  })}
+          {/* #147, #348 — keep Command History discoverable before the first copy. */}
+          <section className="command-history" aria-labelledby="command-history-heading">
+            <div className="command-history-header">
+              <h3 id="command-history-heading">Command history</h3>
+              <button
+                type="button"
+                className="history-toggle"
+                aria-expanded={historyOpen}
+                aria-controls="command-history-list"
+                onClick={() => setHistoryOpen(!historyOpen)}
+              >
+                {historyOpen ? "Hide" : "Show"} ({commandHistory.length})
+              </button>
+            </div>
+            {historyOpen && (
+              <div
+                className="command-history-list"
+                id="command-history-list"
+                role="log"
+                aria-live="polite"
+              >
+                {commandHistory.length === 0 && (
+                  <p className="command-history-empty">
+                    No commands yet. Copy a generated command to add it to this session history.
+                  </p>
+                )}
+                {commandHistory.slice().reverse().map((entry, index) => {
+                  const cmd = buildCommand(entry);
+                  return (
+                    <div key={index} className="command-history-item">
+                      <span className="history-timestamp">
+                        Entry {commandHistory.length - index}
+                      </span>
+                      <code className="history-command">{cmd}</code>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            await copyToClipboard(cmd);
+                            setAnnouncement(`History command ${commandHistory.length - index} copied`);
+                            window.setTimeout(() => setAnnouncement(""), 1600);
+                          } catch {
+                            showCopyFailure();
+                          }
+                        }}
+                        aria-label={`Copy history command ${commandHistory.length - index}`}
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  );
+                })}
+                {commandHistory.length > 0 && (
                   <button
                     type="button"
                     className="button secondary"
                     onClick={() => {
                       setCommandHistory([]);
-                      setHistoryOpen(false);
                       setAnnouncement("Command history cleared");
                       window.setTimeout(() => setAnnouncement(""), 1600);
                     }}
                   >
                     Clear history
                   </button>
-                </div>
-              )}
-            </section>
-          )}
+                )}
+              </div>
+            )}
+          </section>
 
           <div className="advanced-command-block">
             <button type="button" className="button secondary" onClick={toggleAdvancedEditor}>
@@ -2945,8 +2955,17 @@ export default function App() {
                     rows={8}
                     onChange={(event) => setAdvancedCommand(event.target.value)}
                     aria-label="Advanced command arguments"
+                    aria-describedby={command === "audit" ? "audit-editor-count" : undefined}
                   />
                 </label>
+                {/* #351 — Expected behavior: while the Audit multiline editor is open,
+                    show both character and line counts so users can gauge pasted commands
+                    without altering the command text itself. */}
+                {command === "audit" && (
+                  <p className="advanced-editor-count" id="audit-editor-count" aria-live="polite">
+                    {advancedCommand.length} characters · {advancedCommand.split("\n").length} lines
+                  </p>
+                )}
                 <button type="button" className="button primary" onClick={applyAdvancedCommand}>
                   Apply multiline command
                 </button>
