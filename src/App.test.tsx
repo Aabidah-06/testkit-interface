@@ -142,13 +142,20 @@ describe("Coverage option combinations component tests (#200)", () => {
   it("updates format radio options (html, lcov, text)", () => {
     render(<App />);
 
+    const openReport = screen.getByRole("checkbox", { name: /open report when complete/i });
     fireEvent.click(screen.getByRole("radio", { name: "lcov" }));
-    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format lcov --open");
+    expect(openReport).toBeDisabled();
+    expect(openReport).not.toBeChecked();
+    expect(openReport).toHaveAccessibleDescription(/available for html reports only/i);
+    expect(screen.getByTestId("command-output")).toHaveTextContent(/^soroban-testkit coverage \. --format lcov$/);
 
     fireEvent.click(screen.getByRole("radio", { name: "text" }));
-    expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format text --open");
+    expect(openReport).toBeDisabled();
+    expect(screen.getByTestId("command-output")).toHaveTextContent(/^soroban-testkit coverage \. --format text$/);
 
     fireEvent.click(screen.getByRole("radio", { name: "html" }));
+    expect(openReport).toBeEnabled();
+    expect(openReport).toBeChecked();
     expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit coverage . --format html --open");
   });
 
@@ -262,7 +269,8 @@ describe("Audit option combinations component tests (#198)", () => {
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: "audit" }));
 
-    const strictCheckbox = screen.getByLabelText(/fail on warnings/i);
+    const strictCheckbox = screen.getByRole("checkbox", { name: "Fail on warnings (Audit strict mode)" });
+    expect(strictCheckbox).toHaveAccessibleDescription(/non-zero status/i);
     expect(strictCheckbox).toBeChecked();
     expect(screen.getByTestId("command-output")).toHaveTextContent("soroban-testkit audit . --strict");
 
@@ -798,6 +806,25 @@ describe("Limits command reference (#92)", () => {
 });
 
 describe("Audit workflow prerequisites checklist (#91)", () => {
+  it("restores the viewport offset when the Audit checklist opens or closes", () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: "Show tutorial" });
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    const scrollY = vi.spyOn(window, "scrollY", "get");
+    try {
+      scrollY.mockReturnValueOnce(500).mockReturnValueOnce(540);
+      fireEvent.click(toggle);
+      expect(scrollTo).toHaveBeenLastCalledWith({ top: 500, behavior: "instant" });
+
+      scrollY.mockReturnValueOnce(520).mockReturnValueOnce(480);
+      fireEvent.click(toggle);
+      expect(scrollTo).toHaveBeenLastCalledWith({ top: 520, behavior: "instant" });
+    } finally {
+      scrollY.mockRestore();
+      scrollTo.mockRestore();
+    }
+  });
+
   it("lets a user check off audit prerequisites, each with its own accessible name", () => {
     render(<App />);
 
@@ -2495,7 +2522,7 @@ describe("Accessible report format markup (#324)", () => {
     fireEvent.click(within(group).getByRole("radio", { name: "lcov" }));
     expect(within(group).getByRole("radio", { name: "lcov" })).toBeChecked();
     expect(within(group).getByRole("radio", { name: "html" })).not.toBeChecked();
-    expect(screen.getByText("soroban-testkit coverage . --format lcov --open")).toBeInTheDocument();
+    expect(screen.getByText("soroban-testkit coverage . --format lcov")).toBeInTheDocument();
   });
 });
 

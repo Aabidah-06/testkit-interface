@@ -125,3 +125,14 @@ spoken output; the manual screen-reader pass above remains outstanding.
 It shows the idle form, not the invalid interaction. The error is intentionally
 screen-reader-only, so a screenshot cannot establish whether a screen reader
 announces it; the DOM assertion is the relevant automated evidence.
+
+## Audit and Coverage controls
+
+- Audit strict mode (checkbox with `aria-describedby="strict-help"`) has the
+  name “Fail on warnings (Audit strict mode)”. The help remains its description,
+  and the accessible name contains the visible label for voice control.
+- Coverage’s Open report checkbox (`aria-describedby="open-help"`) uses native
+  `disabled` for LCOV and text. Its help explains that it is available for HTML
+  only. This exposes the disabled state independently of the visual styling.
+
+Component tests verify these names, descriptions and native disabled states.

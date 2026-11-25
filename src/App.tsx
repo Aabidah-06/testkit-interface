@@ -1,4 +1,4 @@
-import { Fragment, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type KeyboardEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   buildCommand,
   formatCommandLine,
@@ -681,7 +681,7 @@ const coverageExamples = [
   {
     title: "Machine-readable output",
     description: "Generate LCOV format for CI/CD integration",
-    command: "soroban-testkit coverage . --format lcov --open",
+    command: "soroban-testkit coverage . --format lcov",
   },
   {
     title: "Terminal summary only",
@@ -695,7 +695,7 @@ function summarizeConfiguration(options: CommandOptions): SummaryRow[] {
   if (options.path) rows.push({ label: "Path", value: options.path });
   if (options.command === "coverage" && options.format) {
     rows.push({ label: "Format", value: options.format });
-    if (options.open) rows.push({ label: "Open report", value: "Yes" });
+    if (options.format === "html" && options.open) rows.push({ label: "Open report", value: "Yes" });
   }
   if (options.command === "limits") {
     rows.push({ label: "Function", value: options.fn });
@@ -834,6 +834,14 @@ export default function App() {
   const [configB, setConfigB] = useState<CommandOptions | null>(null);
   const [coverageGuideOpen, setCoverageGuideOpen] = useState(false);
   const [auditGuideOpen, setAuditGuideOpen] = useState(false);
+  const auditGuideScroll = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    const top = auditGuideScroll.current;
+    auditGuideScroll.current = null;
+    if (top !== null && window.scrollY !== top) {
+      window.scrollTo({ top, behavior: "instant" });
+    }
+  }, [auditGuideOpen]);
   const [checkedPrerequisites, setCheckedPrerequisites] = useState<Record<string, boolean>>({});
   const [installFaqOpen, setInstallFaqOpen] = useState(false);
   const [auditWarningsGuideOpen, setAuditWarningsGuideOpen] = useState(false);
@@ -2648,12 +2656,18 @@ export default function App() {
               <label className="check">
                 <span className="check-content">
                   {/* #100 — inline help text for open checkbox */}
-                  <input type="checkbox" checked={open} onChange={(event) => setOpen(event.target.checked)} aria-describedby="open-help" />
+                  <input
+                    type="checkbox"
+                    checked={format === "html" && open}
+                    disabled={format !== "html"}
+                    onChange={(event) => setOpen(event.target.checked)}
+                    aria-describedby="open-help"
+                  />
                   <span>Open report when complete</span>
                 </span>
                 <span className="badge badge-optional">Optional</span>
                 <div id="open-help" className="field-help">
-                  Automatically launches the HTML report in your default browser after generation.
+                  Available for HTML reports only. Opens the report in your default browser after generation.
                 </div>
               </label>
             </>
@@ -2726,7 +2740,7 @@ export default function App() {
             <label className="check">
               <span className="check-content">
                 {/* #100 — inline help text for strict checkbox */}
-                <input type="checkbox" checked={strict} onChange={(event) => setStrict(event.target.checked)} aria-describedby="strict-help" />
+                <input type="checkbox" checked={strict} onChange={(event) => setStrict(event.target.checked)} aria-label="Fail on warnings (Audit strict mode)" aria-describedby="strict-help" />
                 <span>Fail on warnings</span>
               </span>
               <span className="badge badge-optional">Optional</span>
@@ -2939,7 +2953,6 @@ export default function App() {
               </>
             )}
           </div>
-        </div>
 
         {compareOpen && configB && (
           <section
@@ -3005,7 +3018,8 @@ export default function App() {
                     <span className="check-content">
                       <input
                         type="checkbox"
-                        checked={configB.open}
+                        checked={configB.format === "html" && configB.open}
+                        disabled={configB.format !== "html"}
                         onChange={(event) => updateConfigB({ open: event.target.checked })}
                       />
                       <span>Open report when complete</span>
@@ -3046,6 +3060,7 @@ export default function App() {
                     <input
                       type="checkbox"
                       checked={configB.strict}
+                      aria-label="Fail on warnings (configuration B Audit strict mode)"
                       onChange={(event) => updateConfigB({ strict: event.target.checked })}
                     />
                     <span>Fail on warnings</span>
@@ -3242,7 +3257,11 @@ export default function App() {
                 className="guide-toggle"
                 aria-expanded={auditGuideOpen}
                 aria-controls="audit-guide-panel"
-                onClick={() => setAuditGuideOpen((open) => !open)}
+                onClick={() => {
+                  // Keep the viewport at the same page offset when the checklist changes height.
+                  auditGuideScroll.current = window.scrollY;
+                  setAuditGuideOpen((open) => !open);
+                }}
               >
                 {auditGuideOpen ? "Hide tutorial" : "Show tutorial"}
               </button>
