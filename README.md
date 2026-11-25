@@ -12,7 +12,7 @@ The interface does not execute contracts in the browser. Generated commands run 
   - **Large-text Hero Layout**: Enhanced typography scaling at 1200px+ viewports for improved readability on large displays.
   - **Improved Navigation**: Prevents link wrapping on small screens with optimized spacing and flexible layouts.
   - **Tablet Two-Column Grid**: Compact two-column module layout for tablet widths (601px-900px) for better space utilization.
-  - **Landscape Phone Optimization**: Condensed command form layout for landscape phone orientations (541px-900px width, max 600px height).
+  - **Landscape Phone Optimization**: Condensed command form layout for landscape phone orientations (541px-900px width, max 600px height), using the design-system spacing scale and viewport-safe grid/flex sizing to prevent horizontal overflow or clipped controls (#333).
 - **Required vs. Optional Setting Distinction**: Visual badges (`Required` / `Optional`) and `aria-required` attributes in the CLI workbench distinguishing mandatory parameters from optional configuration flags.
 - **Audit workflow support**: An expandable, keyboard-accessible preflight checklist, strict-mode control, and advanced multiline command editor help users prepare and reproduce source audits.
 - **Coverage preflight checklist**: An expandable, keyboard-accessible preflight checklist helps users verify Cargo workspace paths, `llvm-tools-preview`, passing `cargo test` runs, and output formats before running `soroban-testkit coverage`.
