@@ -1440,7 +1440,7 @@ export default function App() {
     setAnnouncement("Jumped to the Coverage command output panel");
   }, [coverageOutputFocusRequest]);
 
-  // #102, #350 — validate required fields and announce actionable errors.
+  // #102, #350, #264 — validate required fields and announce actionable errors.
   const validateAndCopy = async () => {
     if (command === "audit" && !path.trim()) {
       setValidationError(
@@ -1449,7 +1449,12 @@ export default function App() {
       return;
     }
     if (!path.trim()) {
-      setValidationError("Project or contract path is required.");
+      setValidationError(
+        command === "coverage"
+          ? "Project or contract path is required for Coverage. Enter a Cargo workspace directory such as . or ./contracts/token before copying the command."
+          : "Project or contract path is required.",
+      );
+      if (command === "coverage") pathInputRef.current?.focus();
       return;
     }
     if (command === "limits") {
@@ -2636,6 +2641,7 @@ export default function App() {
                 onChange={(event) => { setPath(event.target.value); if (event.target.value.trim()) setValidationError(""); }}
                 aria-label="Project or contract path"
                 aria-required="true"
+                aria-invalid={Boolean(validationError) || undefined}
                 aria-describedby="path-help"
               />
               {path && (

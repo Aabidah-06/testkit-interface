@@ -1724,6 +1724,28 @@ describe("Validation errors announced via live region (#102)", () => {
     expect(writeText).not.toHaveBeenCalled();
   });
 
+  it("explains the empty Coverage path requirement with a concrete example (#264)", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+
+    render(<App />);
+    const pathInput = screen.getByRole("textbox", { name: /project or contract path/i });
+    fireEvent.change(pathInput, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Copy$/ }));
+
+    await waitFor(() => {
+      expect(document.querySelector('[aria-live="assertive"]')?.textContent).toBe(
+        "Project or contract path is required for Coverage. Enter a Cargo workspace directory such as . or ./contracts/token before copying the command.",
+      );
+    });
+    expect(pathInput).toHaveAttribute("aria-invalid", "true");
+    expect(pathInput).toHaveFocus();
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
   it("clears the error message when the path field is filled in", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
