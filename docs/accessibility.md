@@ -29,6 +29,7 @@ automatically, what was fixed, and what still needs a manual pass.
 | Responsive | No horizontal overflow or clipped controls in the landscape command form at 541px-900px width and max 600px height (#333) | `tests/visual/landing.spec.ts` |
 | Screen reader | Multiline editor has a visible matching label, described help, disclosure state, and an applied-command announcement (#334) | `src/App.test.tsx`, `tests/visual/accessibility.spec.ts` |
 | Keyboard | Escape clears the module filter and category chip without blurring the search field (#336) | `src/App.test.tsx`, `tests/visual/accessibility.spec.ts` |
+| Touch targets | Preflight checklist expand/collapse controls are at least 44px tall on mobile (#260) | `tests/visual/accessibility.spec.ts` |
 
 These checks read the accessibility tree and computed styles. They do not
 replace listening to the page with a real screen reader.
@@ -72,6 +73,7 @@ browser and screen reader pair per platform.
 | 12 | Module cards lacked structured heading levels for cards and their workflow groups (#105). | Fixed: established h2 -> h3 -> h4 hierarchy and region grouping. | `src/App.tsx` |
 | 13 | Active command parameters lacked a screen-reader accessible summary (#106). | Fixed: added polite live region and focusable summary card. | `src/App.tsx` |
 | 14 | Interactive controls and cards lost clear boundaries in high-contrast/forced-colors modes (#107). | Fixed: added forced-colors and prefers-contrast: more styling. | `src/styles.css` |
+| 15 | The coverage and limits preflight toggle buttons (`.guide-card .guide-header .preflight-toggle`) were about 24px tall on mobile, below the project's 44px minimum touch target (#260, WCAG 2.1 AA 2.5.5 advisory size). | Fixed: `min-height: var(--tap-target-min)` with 44px token and padded height at 768px and below. | `src/App.tsx`, `src/styles.css` |
 
 ## Coverage report formats (#324)
 
@@ -122,3 +124,35 @@ editor and its accessibility tree are exercised in
 | 2 | `#advanced-command-editor` | No `aria-describedby`, so multiline syntax guidance was unavailable to screen reader users. | Fixed: visible `#advanced-command-help` text is referenced by `aria-describedby`. |
 | 3 | `.advanced-command-block > button.button.secondary` | The disclosure exposed neither `aria-expanded` nor `aria-controls`, so its state was unavailable outside the visual interface. | Fixed: both attributes, with an always-mounted `#advanced-command-panel` so the reference always resolves. |
 | 4 | `.advanced-command-block .button.primary` | Applying a command only changed generated output; nothing was announced to a virtual-cursor user. | Fixed: the polite live region announces "Multiline command applied"; invalid input is reported in the assertive validation region. |
+## Validation-error announcement audit (#342)
+
+**Audit result:** The required-path validation is announced; it is not relying
+on visual styling alone. Clicking the workbench's `Copy` button with an empty
+path sets the message in
+`p.sr-only[aria-live="assertive"][role="alert"]` in `src/App.tsx`. The
+`.sr-only` rule in `src/styles.css` visually clips the message without
+removing it from the accessibility tree. The component test in
+`src/App.test.tsx` verifies that the assertive live region receives the
+required-path message and that the clipboard is not called; a separate test
+verifies that filling in the path clears the error.
+
+This covers WCAG 2.1 AA 4.1.3 (Status Messages) for the announcement and
+3.3.1 (Error Identification) for the text description. No implementation
+change was needed for #342. The automated checks verify DOM semantics, not
+spoken output; the manual screen-reader pass above remains outstanding.
+
+**Pre-change visual reference:** [Coverage command-builder screenshot](../tests/visual/__screenshots__/commands-coverage.png).
+It shows the idle form, not the invalid interaction. The error is intentionally
+screen-reader-only, so a screenshot cannot establish whether a screen reader
+announces it; the DOM assertion is the relevant automated evidence.
+
+## Audit and Coverage controls
+
+- Audit strict mode (checkbox with `aria-describedby="strict-help"`) has the
+  name “Fail on warnings (Audit strict mode)”. The help remains its description,
+  and the accessible name contains the visible label for voice control.
+- Coverage’s Open report checkbox (`aria-describedby="open-help"`) uses native
+  `disabled` for LCOV and text. Its help explains that it is available for HTML
+  only. This exposes the disabled state independently of the visual styling.
+
+Component tests verify these names, descriptions and native disabled states.
