@@ -888,6 +888,30 @@ describe("Command builder enhancements", () => {
       "soroban-testkit audit ./src --strict",
     );
   });
+
+  it("counts the draft lines in the Limits editor without applying the draft", () => {
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "limits" }));
+    fireEvent.click(screen.getByRole("button", { name: "Advanced arguments" }));
+
+    const editor = screen.getByRole("textbox", { name: "Advanced command arguments" });
+    const command = screen.getByTestId("command-output");
+    const originalCommand = command.textContent;
+    expect(editor).toHaveAccessibleDescription(/\d+ lines?/);
+
+    fireEvent.change(editor, { target: { value: "soroban-testkit limits\n--fn execute_equal\n" } });
+    expect(editor).toHaveAccessibleDescription("3 lines");
+    expect(screen.getByText("3 lines")).toBeVisible();
+    expect(command.textContent).toBe(originalCommand);
+
+    fireEvent.change(editor, { target: { value: "soroban-testkit limits" } });
+    expect(editor).toHaveAccessibleDescription("1 line");
+
+    fireEvent.change(editor, { target: { value: "" } });
+    expect(editor).toHaveAccessibleDescription("0 lines");
+    expect(screen.getByText("0 lines")).toBeVisible();
+    expect(command.textContent).toBe(originalCommand);
+  });
 });
 
 describe("Active section tracking in navigation (#128)", () => {
